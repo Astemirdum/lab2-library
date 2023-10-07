@@ -5,8 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/Astemirdum/library-service/reservation/internal/errs"
 	"time"
+
+	"github.com/Astemirdum/library-service/reservation/internal/errs"
 
 	"github.com/Astemirdum/library-service/reservation/internal/model"
 	"github.com/google/uuid"

@@ -1,9 +1,10 @@
 package handler
 
 import (
-	"github.com/pkg/errors"
 	"net/http"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/Astemirdum/library-service/reservation/internal/errs"
 	"github.com/Astemirdum/library-service/reservation/internal/model"

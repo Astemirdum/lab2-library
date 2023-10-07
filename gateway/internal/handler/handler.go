@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"net/http"
+
 	"github.com/Astemirdum/library-service/gateway/config"
 	"github.com/Astemirdum/library-service/gateway/internal/errs"
 	"github.com/Astemirdum/library-service/gateway/internal/model"
@@ -14,7 +16,6 @@ import (
 	echoSwagger "github.com/swaggo/echo-swagger"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"net/http"
 )
 
 type Handler struct {

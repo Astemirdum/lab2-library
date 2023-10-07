@@ -20,6 +20,7 @@ type Repository interface {
 	ListBooks(ctx context.Context, libraryUid string, showAll bool, page, size int) (model.ListBooks, error)
 	GetBook(ctx context.Context, libraryUid, bookUid string) (model.Book, error)
 	GetLibrary(ctx context.Context, libraryUid string) (model.Library, error)
+	AvailableCount(ctx context.Context, libraryID, bookID int, isReturn bool) error
 }
 
 type repository struct {
@@ -43,12 +44,13 @@ const (
 var qb = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
 func (r *repository) GetBook(ctx context.Context, libraryUid, bookUid string) (model.Book, error) {
-	query, args, err := qb.Select("book_uid", "b.name", "author", "genre").
+	query, args, err := qb.Select("b.id", "book_uid", "b.name", "author", "genre", "condition").
 		From(booksTableName + " b").
 		Join(fmt.Sprintf("%s lb on b.id = lb.book_id", libraryBooksTableName)).
 		Join(fmt.Sprintf("%s l on l.id = lb.library_id", libraryTableName)).
 		Where(sq.Eq{"library_uid": libraryUid}).
 		Where(sq.Eq{"book_uid": bookUid}).
+		Where(sq.Gt{"available_count": 0}).
 		Limit(1).
 		ToSql()
 	if err != nil {
@@ -57,6 +59,7 @@ func (r *repository) GetBook(ctx context.Context, libraryUid, bookUid string) (m
 
 	var book model.Book
 	if err := r.db.GetContext(ctx, &book, query, args...); err != nil {
+		r.log.Error("GetBook", zap.String("q", query), zap.Any("args", args))
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Book{}, errs.ErrNotFound
 		}
@@ -66,8 +69,21 @@ func (r *repository) GetBook(ctx context.Context, libraryUid, bookUid string) (m
 	return book, nil
 }
 
+func (r *repository) AvailableCount(ctx context.Context, libraryID, bookID int, isReturn bool) error {
+	q := `
+update library_books
+    set available_count = available_count + $3
+where library_id = $1 and book_id = $2`
+	inc := 1
+	if !isReturn {
+		inc = -1
+	}
+	_, err := r.db.ExecContext(ctx, q, libraryID, bookID, inc)
+	return err
+}
+
 func (r *repository) GetLibrary(ctx context.Context, libraryUid string) (model.Library, error) {
-	query, args, err := qb.Select("library_uid", "name", "city", "address").
+	query, args, err := qb.Select("id", "library_uid", "name", "city", "address").
 		From(libraryTableName).
 		Where(sq.Eq{"library_uid": libraryUid}).
 		Limit(1).
@@ -78,6 +94,9 @@ func (r *repository) GetLibrary(ctx context.Context, libraryUid string) (model.L
 
 	var lib model.Library
 	if err := r.db.GetContext(ctx, &lib, query, args...); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.Library{}, errs.ErrNotFound
+		}
 		return model.Library{}, err
 	}
 

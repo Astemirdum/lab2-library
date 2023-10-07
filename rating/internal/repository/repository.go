@@ -16,6 +16,7 @@ import (
 
 type Repository interface {
 	GetRating(ctx context.Context, name string) (ratingModel.Rating, error)
+	Rating(ctx context.Context, name string, stars int) error
 }
 
 type repository struct {
@@ -35,6 +36,15 @@ const (
 )
 
 var qb = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
+
+func (r *repository) Rating(ctx context.Context, name string, stars int) error {
+	q := `
+update rating 
+set stars = stars + $1
+where username=$2`
+	_, err := r.db.ExecContext(ctx, q, stars, name)
+	return err
+}
 
 func (r *repository) GetRating(ctx context.Context, name string) (ratingModel.Rating, error) {
 	q, args, err := qb.Select("stars").

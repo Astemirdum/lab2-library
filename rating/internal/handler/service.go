@@ -12,6 +12,7 @@ import (
 
 type RatingService interface {
 	GetRating(ctx context.Context, name string) (ratingModel.Rating, error)
+	Rating(ctx context.Context, name string, stars int) error
 }
 
 var _ RatingService = (*service.Service)(nil)

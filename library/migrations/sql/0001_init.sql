@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS library_books
 (
     book_id         INT REFERENCES books (id),
     library_id      INT REFERENCES library (id),
-    available_count INT NOT NULL
+    available_count INT NOT NULL CHECK (available_count >= 0)
 );
 
 INSERT INTO library (library_uid, name, city, address) VALUES

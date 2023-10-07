@@ -17,6 +17,7 @@ type Paging struct {
 }
 
 type Book struct {
+	ID             int       `json:"id" db:"id"`
 	BookUid        string    `json:"bookUid" db:"book_uid"`
 	Name           string    `json:"name" db:"name"`
 	Author         string    `json:"author" db:"author"`
@@ -34,6 +35,7 @@ const (
 )
 
 type Library struct {
+	ID         int    `json:"id" db:"id"`
 	LibraryUid string `json:"libraryUid" db:"library_uid"`
 	Name       string `json:"name" db:"name"`
 	Address    string `json:"address" db:"address"`

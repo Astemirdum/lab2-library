@@ -89,6 +89,9 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 	ctx := c.Request().Context()
 	resp, err := h.reservationSvc.CreateReservation(ctx, req)
 	if err != nil {
+		if errors.Is(err, errs.ErrNoStars) {
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
@@ -123,11 +126,12 @@ func (h *Handler) ReservationsReturn(c echo.Context) error {
 	if err := c.Validate(req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	if err := h.reservationSvc.ReservationsReturn(ctx, username, reservationUid); err != nil {
+	resp, err := h.reservationSvc.ReservationsReturn(ctx, username, reservationUid)
+	if err != nil {
 		if errors.Is(err, errs.ErrNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, err.Error())
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	return c.NoContent(http.StatusNoContent)
+	return c.JSON(http.StatusOK, resp)
 }

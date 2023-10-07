@@ -14,6 +14,7 @@ type LibraryService interface {
 	ListBooks(ctx context.Context, libraryUid string, showAll bool, page, size int) (model.ListBooks, error)
 	GetBook(ctx context.Context, libraryUid, bookUid string) (model.Book, error)
 	GetLibrary(ctx context.Context, libraryUid string) (model.Library, error)
+	AvailableCount(ctx context.Context, libraryID, bookID int, isReturn bool) error
 }
 
 var _ LibraryService = (*service.Service)(nil)

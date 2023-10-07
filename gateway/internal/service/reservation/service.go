@@ -78,22 +78,26 @@ func (s *Service) CreateReservation(ctx context.Context, request model.CreateRes
 	return rsv, resp.StatusCode, nil
 }
 
-func (s *Service) ReservationReturn(ctx context.Context, req model.ReservationReturnRequest, username, reservationUid string) (int, error) {
+func (s *Service) ReservationReturn(ctx context.Context, req model.ReservationReturnRequest, username, reservationUid string) (model.ReservationReturnResponse, int, error) {
 	b := bytes.NewBuffer(nil)
 	if err := json.NewEncoder(b).Encode(req); err != nil {
-		return http.StatusBadRequest, err
+		return model.ReservationReturnResponse{}, http.StatusBadRequest, err
 	}
 	r, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://%s/api/v1/reservations/%s/return", net.JoinHostPort(s.cfg.Host, s.cfg.Port), reservationUid), b)
 	if err != nil {
-		return http.StatusBadRequest, err
+		return model.ReservationReturnResponse{}, http.StatusBadRequest, err
 	}
 	r.Header.Set("Content-Type", echo.MIMEApplicationJSONCharsetUTF8)
 	r.Header.Set(XUserName, username)
 	resp, err := s.client.Do(r)
 	if err != nil {
-		return http.StatusBadRequest, err
+		return model.ReservationReturnResponse{}, http.StatusBadRequest, err
 	}
 	defer resp.Body.Close()
 
-	return resp.StatusCode, nil
+	var res model.ReservationReturnResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return model.ReservationReturnResponse{}, http.StatusBadRequest, err
+	}
+	return res, resp.StatusCode, nil
 }

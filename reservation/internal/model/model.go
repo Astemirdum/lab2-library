@@ -9,6 +9,7 @@ type CreateReservationRequest struct {
 	LibraryUid string `json:"libraryUid" validate:"required"`
 	TillDate   Date   `json:"tillDate" validate:"required"`
 	UserName   string `validate:"required"`
+	Stars      int    `json:"rating"`
 }
 
 type Date struct {
@@ -37,4 +38,9 @@ type Reservation struct {
 type ReservationReturnRequest struct {
 	Condition string `json:"condition" validate:"required,oneof=EXCELLENT GOOD BAD"`
 	Date      Date   `json:"date" validate:"required"`
+}
+
+type ReservationReturnResponse struct {
+	BookUid    string `json:"bookUid" db:"book_uid"`
+	LibraryUid string `json:"libraryUid" db:"library_uid"`
 }

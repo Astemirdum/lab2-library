@@ -1,9 +1,11 @@
 package library
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Astemirdum/library-service/gateway/internal/errs"
 	"io"
 	"net"
 	"net/http"
@@ -30,46 +32,86 @@ func NewService(log *zap.Logger, cfg config.Config) *Service {
 	}
 }
 
-func (s *Service) GetBook(ctx context.Context, libUid, bookUid string) (model.Book, int, error) {
+func (s *Service) GetBook(ctx context.Context, libUid, bookUid string) (model.GetBook, int, error) {
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
 		fmt.Sprintf("http://%s/api/v1/libraries/%s/books/%s", net.JoinHostPort(s.cfg.Host, s.cfg.Port), libUid, bookUid),
 		nil)
 	if err != nil {
-		return model.Book{}, http.StatusBadRequest, err
+		return model.GetBook{}, http.StatusBadRequest, err
 	}
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return model.Book{}, http.StatusBadRequest, err
-	}
-	var book model.Book
-	if err := json.NewDecoder(resp.Body).Decode(&book); err != nil {
-		return model.Book{}, http.StatusBadRequest, err
+		return model.GetBook{}, http.StatusBadRequest, err
 	}
 	defer resp.Body.Close()
-	return book, resp.StatusCode, nil
+	var book model.GetBook
+	if err := json.NewDecoder(resp.Body).Decode(&book); err != nil {
+		return model.GetBook{}, http.StatusBadRequest, err
+	}
+	if resp.StatusCode >= 400 {
+		err = errs.ErrDefault
+	}
+	return book, resp.StatusCode, err
 }
 
-func (s *Service) GetLibrary(ctx context.Context, libUid string) (model.Library, int, error) {
+func (s *Service) AvailableCount(ctx context.Context, libraryID, bookID int, isReturn bool) (status int, err error) {
+	b := bytes.NewBuffer(nil)
+	type Req struct {
+		LibraryID int  `json:"libraryID"`
+		BookID    int  `json:"bookID"`
+		IsReturn  bool `json:"isReturn"`
+	}
+	if err := json.NewEncoder(b).Encode(Req{
+		LibraryID: libraryID,
+		BookID:    bookID,
+		IsReturn:  isReturn,
+	}); err != nil {
+		return http.StatusBadRequest, err
+	}
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPatch,
+		fmt.Sprintf("http://%s/api/v1/libraries/books", net.JoinHostPort(s.cfg.Host, s.cfg.Port)),
+		b)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+	req.Header.Set("Content-Type", echo.MIMEApplicationJSONCharsetUTF8)
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		err = errs.ErrDefault
+	}
+	return resp.StatusCode, err
+}
+
+func (s *Service) GetLibrary(ctx context.Context, libUid string) (model.GetLibrary, int, error) {
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
 		fmt.Sprintf("http://%s/api/v1/libraries/%s", net.JoinHostPort(s.cfg.Host, s.cfg.Port), libUid),
 		nil)
 	if err != nil {
-		return model.Library{}, http.StatusBadRequest, err
+		return model.GetLibrary{}, http.StatusBadRequest, err
 	}
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return model.Library{}, http.StatusBadRequest, err
-	}
-	var lib model.Library
-	if err := json.NewDecoder(resp.Body).Decode(&lib); err != nil {
-		return model.Library{}, http.StatusBadRequest, err
+		return model.GetLibrary{}, http.StatusBadRequest, err
 	}
 	defer resp.Body.Close()
-	return lib, resp.StatusCode, nil
+	var lib model.GetLibrary
+	if err := json.NewDecoder(resp.Body).Decode(&lib); err != nil {
+		return model.GetLibrary{}, http.StatusBadRequest, err
+	}
+	if resp.StatusCode >= 400 {
+		err = errs.ErrDefault
+	}
+	return lib, resp.StatusCode, err
 }
 
 func (s *Service) GetBooks(c echo.Context) (data []byte, statusCode int, err error) {

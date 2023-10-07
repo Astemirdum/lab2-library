@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/Astemirdum/library-service/reservation/internal/errs"
 	"time"
@@ -16,8 +18,9 @@ import (
 
 type Repository interface {
 	CreateReservation(ctx context.Context, req model.CreateReservationRequest) (model.Reservation, error)
+	GetRented(ctx context.Context, username string) (int, error)
 	GetReservations(ctx context.Context, username string) ([]model.Reservation, error)
-	ReservationsReturn(ctx context.Context, username, reservationUid string) error
+	ReservationsReturn(ctx context.Context, username, reservationUid string) (model.ReservationReturnResponse, error)
 }
 
 type repository struct {
@@ -38,25 +41,22 @@ const (
 
 var qb = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
-func (r *repository) ReservationsReturn(ctx context.Context, username, reservationUid string) error {
+func (r *repository) ReservationsReturn(ctx context.Context, username, reservationUid string) (model.ReservationReturnResponse, error) {
 	q := fmt.Sprintf(`update %s
 	set status = case when date(now()) > till_date 
 	    then 'EXPIRED' else 'RETURNED' end
-	where reservation_uid = $1 and username = $2 and status='RENTED'`, reservationTableName)
+	where reservation_uid = $1 and username = $2 and status='RENTED'
+	returning book_uid, library_uid`, reservationTableName)
 
-	res, err := r.db.ExecContext(ctx, q, reservationUid, username)
+	var resp model.ReservationReturnResponse
+	err := r.db.QueryRowContext(ctx, q, reservationUid, username).Scan(&resp.LibraryUid, &resp.BookUid)
 	if err != nil {
-		return err
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.ReservationReturnResponse{}, errs.ErrNotFound
+		}
+		return model.ReservationReturnResponse{}, err
 	}
-	dd, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	r.log.Debug("update", zap.Int64("res.RowsAffected()", dd))
-	if dd == 0 {
-		return errs.ErrNotFound
-	}
-	return nil
+	return resp, nil
 }
 
 func (r *repository) GetReservations(ctx context.Context, username string) ([]model.Reservation, error) {
@@ -72,6 +72,18 @@ func (r *repository) GetReservations(ctx context.Context, username string) ([]mo
 		return nil, err
 	}
 	return items, nil
+}
+
+func (r *repository) GetRented(ctx context.Context, username string) (int, error) {
+	q := `
+	select count(*) from reservation
+	where username = $1 and status = 'RENTED'
+`
+	var count int
+	if err := r.db.QueryRowContext(ctx, q, username).Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 func (r *repository) CreateReservation(ctx context.Context, req model.CreateReservationRequest) (model.Reservation, error) {

@@ -24,6 +24,10 @@ func (s *Service) GetBook(ctx context.Context, libraryUid, bookUid string) (mode
 	return s.repo.GetBook(ctx, libraryUid, bookUid)
 }
 
+func (s *Service) AvailableCount(ctx context.Context, libraryID, bookID int, isReturn bool) error {
+	return s.repo.AvailableCount(ctx, libraryID, bookID, isReturn)
+}
+
 func (s *Service) GetLibrary(ctx context.Context, libraryUid string) (model.Library, error) {
 	return s.repo.GetLibrary(ctx, libraryUid)
 }

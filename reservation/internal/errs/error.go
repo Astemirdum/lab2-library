@@ -7,6 +7,7 @@ import (
 var (
 	ErrNotFound = errors.New("not found")
 	ErrUserName = errors.New("username is required")
+	ErrNoStars  = errors.New("stars <= rented books")
 )
 
 type ValidationErrorResponse struct {

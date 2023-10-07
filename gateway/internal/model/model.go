@@ -23,6 +23,7 @@ type CreateReservationRequest struct {
 	LibraryUid string `json:"libraryUid" validate:"required"`
 	TillDate   Date   `json:"tillDate" validate:"required"`
 	UserName   string `json:"-" validate:"required"`
+	Stars      int    `json:"rating"`
 }
 
 type Date struct {
@@ -49,11 +50,23 @@ type Library struct {
 	Address    string `json:"address"`
 	City       string `json:"city"`
 }
+
 type Book struct {
 	BookUid string `json:"bookUid"`
 	Name    string `json:"name"`
 	Author  string `json:"author"`
 	Genre   string `json:"genre"`
+}
+
+type GetBook struct {
+	ID        int `json:"id"`
+	Book      `json:",inline"`
+	Condition string `json:"condition"`
+}
+
+type GetLibrary struct {
+	ID      int `json:"id"`
+	Library `json:",inline"`
 }
 
 type Reservation struct {
@@ -79,4 +92,9 @@ type Rating struct {
 type ReservationReturnRequest struct {
 	Condition string `json:"condition" validate:"required,oneof=EXCELLENT GOOD BAD"`
 	Date      Date   `json:"date" validate:"required"`
+}
+
+type ReservationReturnResponse struct {
+	BookUid    string `json:"bookUid" db:"book_uid"`
+	LibraryUid string `json:"libraryUid" db:"library_uid"`
 }

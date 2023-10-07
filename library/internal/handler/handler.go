@@ -64,6 +64,7 @@ func (h *Handler) NewRouter() *echo.Echo {
 
 	api.GET("/libraries/:libraryUid/books", h.GetBooks)
 	api.GET("/libraries/:libraryUid/books/:bookUid", h.GetBook)
+	api.PATCH("/libraries/books", h.AvailableCount)
 
 	api.GET("/libraries", h.GetLibraries)
 	api.GET("/libraries/:libraryUid", h.GetLibrary)
@@ -73,6 +74,22 @@ func (h *Handler) NewRouter() *echo.Echo {
 
 func (h *Handler) Health(c echo.Context) error {
 	return c.String(http.StatusOK, "OK")
+}
+
+func (h *Handler) AvailableCount(c echo.Context) error {
+	type Req struct {
+		LibraryID int  `json:"libraryID"`
+		BookID    int  `json:"bookID"`
+		IsReturn  bool `json:"isReturn"`
+	}
+	var req Req
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if err := h.librarySvc.AvailableCount(c.Request().Context(), req.LibraryID, req.BookID, req.IsReturn); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.NoContent(http.StatusOK)
 }
 
 func (h *Handler) GetBook(c echo.Context) error {

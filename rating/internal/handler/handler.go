@@ -59,12 +59,37 @@ func (h *Handler) NewRouter() *echo.Echo {
 	)
 
 	api.GET("/rating", h.GetRating)
+	api.PATCH("/rating", h.Rating)
 
 	return e
 }
 
 func (h *Handler) Health(c echo.Context) error {
 	return c.String(http.StatusOK, "OK")
+}
+
+func (h *Handler) Rating(c echo.Context) error {
+	ctx := c.Request().Context()
+	userName := c.Request().Header.Get("X-User-Name")
+	if userName == "" {
+		return echo.NewHTTPError(http.StatusNotFound, "username is empty")
+	}
+
+	ratingReq := struct {
+		Stars int `json:"stars"`
+	}{}
+	if err := c.Bind(&ratingReq); err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, err.Error())
+	}
+	err := h.ratingSvc.Rating(ctx, userName, ratingReq.Stars)
+	if err != nil {
+		if errors.Is(err, errs.ErrNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, err.Error())
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.NoContent(http.StatusOK)
 }
 
 func (h *Handler) GetRating(c echo.Context) error {

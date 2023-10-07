@@ -102,7 +102,7 @@ func (h *Handler) GetReservations(c echo.Context) error {
 			if err != nil {
 				return echo.NewHTTPError(code, err.Error())
 			}
-			libs = append(libs, lib)
+			libs = append(libs, lib.Library)
 		}
 		return nil
 	})
@@ -113,7 +113,7 @@ func (h *Handler) GetReservations(c echo.Context) error {
 			if err != nil {
 				return echo.NewHTTPError(code, err.Error())
 			}
-			books = append(books, book)
+			books = append(books, book.Book)
 		}
 		return nil
 	})
@@ -152,30 +152,55 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 	ctx := c.Request().Context()
-	lib, code, err := h.librarySvc.GetLibrary(ctx, createReservationRequest.LibraryUid)
-	if err != nil {
-		return echo.NewHTTPError(code, err.Error())
-	}
+	var (
+		lib  model.GetLibrary
+		book model.GetBook
+		rat  model.Rating
+		code int
+		err  error
+	)
+	gg, ctxCancel := errgroup.WithContext(ctx)
+	gg.Go(func() error {
+		lib, code, err = h.librarySvc.GetLibrary(ctxCancel, createReservationRequest.LibraryUid)
+		if err != nil {
+			return echo.NewHTTPError(code, err.Error())
+		}
+		return nil
+	})
 
-	book, code, err := h.librarySvc.GetBook(ctx, createReservationRequest.LibraryUid, createReservationRequest.BookUid)
-	if err != nil {
-		return echo.NewHTTPError(code, err.Error())
-	}
+	gg.Go(func() error {
+		book, code, err = h.librarySvc.GetBook(ctxCancel, createReservationRequest.LibraryUid, createReservationRequest.BookUid)
+		if err != nil {
+			return echo.NewHTTPError(code, err.Error())
+		}
+		return nil
+	})
 
-	rat, code, err := h.ratingSvc.GetRating(ctx, createReservationRequest.UserName)
-	if err != nil {
-		return echo.NewHTTPError(code, err.Error())
-	}
+	gg.Go(func() error {
+		rat, code, err = h.ratingSvc.GetRating(ctxCancel, createReservationRequest.UserName)
+		if err != nil {
+			return echo.NewHTTPError(code, err.Error())
+		}
+		return nil
+	})
 
+	if err := gg.Wait(); err != nil {
+		return err
+	}
+	createReservationRequest.Stars = rat.Stars
 	rsv, code, err := h.reservationSvc.CreateReservation(ctx, createReservationRequest)
 	if err != nil {
 		return echo.NewHTTPError(code, err.Error())
 	}
 
+	if code, err := h.librarySvc.AvailableCount(ctx, lib.ID, book.ID, false); err != nil {
+		return echo.NewHTTPError(code, err.Error())
+	}
+
 	return c.JSON(http.StatusOK, model.CreateReservationResponse{
 		Reservation: rsv,
-		Library:     lib,
-		Book:        book,
+		Library:     lib.Library,
+		Book:        book.Book,
 		Rating:      rat,
 	})
 }
@@ -194,12 +219,47 @@ func (h *Handler) ReservationReturn(c echo.Context) error {
 	if err := c.Validate(req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	code, err := h.reservationSvc.ReservationReturn(ctx, req, username, reservationUid)
+	res, code, err := h.reservationSvc.ReservationReturn(ctx, req, username, reservationUid)
 	if err != nil {
 		return echo.NewHTTPError(code, err.Error())
 	}
+	var (
+		lib  model.GetLibrary
+		book model.GetBook
+	)
+	gg, ctxCancel := errgroup.WithContext(ctx)
+	gg.Go(func() error {
+		lib, code, err = h.librarySvc.GetLibrary(ctxCancel, res.LibraryUid)
+		if err != nil {
+			return echo.NewHTTPError(code, err.Error())
+		}
+		return nil
+	})
 
-	return c.NoContent(code)
+	gg.Go(func() error {
+		book, code, err = h.librarySvc.GetBook(ctxCancel, res.LibraryUid, res.BookUid)
+		if err != nil {
+			return echo.NewHTTPError(code, err.Error())
+		}
+		return nil
+	})
+	if err := gg.Wait(); err != nil {
+		return err
+	}
+
+	if code, err := h.librarySvc.AvailableCount(ctx, lib.ID, book.ID, true); err != nil {
+		return echo.NewHTTPError(code, err.Error())
+	}
+
+	stars := 1
+	if book.Condition != req.Condition {
+		stars = -10
+	}
+	if code, err := h.ratingSvc.Rating(ctx, username, stars); err != nil {
+		return echo.NewHTTPError(code, err.Error())
+	}
+
+	return c.NoContent(http.StatusNoContent)
 }
 
 func (h *Handler) GetBooks(c echo.Context) error {

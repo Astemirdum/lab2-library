@@ -6,6 +6,7 @@ import (
 
 var (
 	ErrNotFound = errors.New("not found")
+	ErrDefault  = errors.New("some error")
 	ErrUserName = errors.New("username is required")
 )
 

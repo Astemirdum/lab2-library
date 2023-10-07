@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+
 	"github.com/Astemirdum/library-service/gateway/internal/model"
 	"github.com/labstack/echo/v4"
 
@@ -30,7 +31,7 @@ type RatingService interface {
 }
 
 type ReservationService interface {
-	GetReservation(c echo.Context) ([]byte, int, error)
-	CreateReservation(c context.Context, request model.CreateReservationRequest) (model.Reservation, int, error)
-	ReservationReturn(c echo.Context) ([]byte, int, error)
+	GetReservation(ctx context.Context, username string) ([]model.GetReservation, int, error)
+	CreateReservation(ctx context.Context, request model.CreateReservationRequest) (model.Reservation, int, error)
+	ReservationReturn(ctx context.Context, req model.ReservationReturnRequest, username, reservationUid string) (int, error)
 }

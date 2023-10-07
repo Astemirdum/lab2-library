@@ -1,9 +1,12 @@
 package handler
 
 import (
-	"github.com/Astemirdum/library-service/reservation/internal/model"
+	"github.com/pkg/errors"
 	"net/http"
 	"time"
+
+	"github.com/Astemirdum/library-service/reservation/internal/errs"
+	"github.com/Astemirdum/library-service/reservation/internal/model"
 
 	"github.com/Astemirdum/library-service/pkg/validate"
 	"github.com/labstack/echo/v4"
@@ -15,12 +18,12 @@ import (
 )
 
 type Handler struct {
-	reservationSvc LibraryService
+	reservationSvc ReservationService
 	client         *http.Client
 	log            *zap.Logger
 }
 
-func New(reservationSrv LibraryService, log *zap.Logger) *Handler {
+func New(reservationSrv ReservationService, log *zap.Logger) *Handler {
 	h := &Handler{
 		reservationSvc: reservationSrv,
 		log:            log,
@@ -58,9 +61,9 @@ func (h *Handler) NewRouter() *echo.Echo {
 		newRateLimiterMW(apiRPS),
 	)
 
-	api.GET("/reservations", h.GetReservation)
+	api.GET("/reservations", h.GetReservations)
 	api.POST("/reservations", h.CreateReservation)
-	api.POST("/reservations/{reservationUid}/return", h.ReservationReturn)
+	api.POST("/reservations/:reservationUid/return", h.ReservationsReturn)
 
 	return e
 }
@@ -92,17 +95,39 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
-func (h *Handler) GetReservation(c echo.Context) error {
+func (h *Handler) GetReservations(c echo.Context) error {
 	ctx := c.Request().Context()
-	err := h.reservationSvc.GetReservation(ctx)
+	username := c.Request().Header.Get(XUserName)
+	if username == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, errs.ErrUserName)
+	}
+	rsv, err := h.reservationSvc.GetReservations(ctx, username)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	// c.Response().Header().Set("Location", fmt.Sprintf("/api/v1/librarys/%d", id))
-
-	return c.JSON(http.StatusOK, nil)
+	return c.JSON(http.StatusOK, rsv)
 }
 
-func (h *Handler) ReservationReturn(c echo.Context) error {
-	return nil
+func (h *Handler) ReservationsReturn(c echo.Context) error {
+	ctx := c.Request().Context()
+	username := c.Request().Header.Get(XUserName)
+	if username == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, errs.ErrUserName)
+	}
+	reservationUid := c.Param("reservationUid")
+
+	var req model.ReservationReturnRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if err := c.Validate(req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if err := h.reservationSvc.ReservationsReturn(ctx, username, reservationUid); err != nil {
+		if errors.Is(err, errs.ErrNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, err.Error())
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.NoContent(http.StatusNoContent)
 }

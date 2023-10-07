@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+
 	"github.com/Astemirdum/library-service/rating/internal/errs"
 	"github.com/pkg/errors"
 
@@ -41,7 +42,7 @@ func (r *repository) GetRating(ctx context.Context, name string) (ratingModel.Ra
 		Where(sq.Eq{"username": name}).
 		ToSql()
 	if err != nil {
-		return ratingModel.Rating{}, nil
+		return ratingModel.Rating{}, err
 	}
 
 	var rr ratingModel.Rating
@@ -49,7 +50,7 @@ func (r *repository) GetRating(ctx context.Context, name string) (ratingModel.Ra
 		if errors.Is(err, sql.ErrNoRows) {
 			return ratingModel.Rating{}, errs.ErrNotFound
 		}
-		return ratingModel.Rating{}, nil
+		return ratingModel.Rating{}, err
 	}
 
 	return rr, nil

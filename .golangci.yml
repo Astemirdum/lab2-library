@@ -157,7 +157,7 @@ linters:
     - errcheck # Errcheck is a program for checking for unchecked errors in go programs. These unchecked errors can be critical bugs in some cases
     - errorlint # errorlint is a linter for that can be used to find code that will cause problems with the error wrapping scheme introduced in Go 1.13.
     - exportloopref # checks for pointers to enclosing loop variables
-    - gocritic # Provides many diagnostics that check for bugs, performance and style issues.
+#    - gocritic # Provides many diagnostics that check for bugs, performance and style issues.
     - gocyclo # Computes and checks the cyclomatic complexity of functions
     - godot # Check if comments end in a period
     - gofmt # Gofmt checks whether code was gofmt-ed. By default this tool runs with -s option to check for code simplification

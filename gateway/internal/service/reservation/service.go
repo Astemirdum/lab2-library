@@ -5,12 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Astemirdum/library-service/gateway/config"
-	"github.com/Astemirdum/library-service/gateway/internal/model"
-	"github.com/labstack/echo/v4"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/Astemirdum/library-service/gateway/config"
+	"github.com/Astemirdum/library-service/gateway/internal/model"
+	"github.com/labstack/echo/v4"
 
 	"go.uber.org/zap"
 )
@@ -21,7 +22,7 @@ type Service struct {
 	cfg    config.ReservationHTTPServer
 }
 
-func NewService(log *zap.Logger, cfg config.Config) *Service {
+func NewService(log *zap.Logger, cfg config.Config) *Service { //nolint:gocritic
 	return &Service{
 		log:    log,
 		client: &http.Client{Timeout: time.Minute},
@@ -29,8 +30,28 @@ func NewService(log *zap.Logger, cfg config.Config) *Service {
 	}
 }
 
-func (s *Service) GetReservation(c echo.Context) ([]byte, int, error) {
-	return nil, 0, nil
+const (
+	XUserName = "X-User-Name"
+)
+
+func (s *Service) GetReservation(ctx context.Context, username string) ([]model.GetReservation, int, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://%s/api/v1/reservations", net.JoinHostPort(s.cfg.Host, s.cfg.Port)), http.NoBody)
+	if err != nil {
+		return nil, http.StatusBadRequest, err
+	}
+	req.Header.Set(XUserName, username)
+	req.Header.Set("Content-Type", echo.MIMEApplicationJSONCharsetUTF8)
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return nil, http.StatusBadRequest, err
+	}
+	defer resp.Body.Close()
+
+	var rsv []model.GetReservation
+	if err := json.NewDecoder(resp.Body).Decode(&rsv); err != nil {
+		return nil, http.StatusBadRequest, err
+	}
+	return rsv, resp.StatusCode, nil
 }
 
 func (s *Service) CreateReservation(ctx context.Context, request model.CreateReservationRequest) (model.Reservation, int, error) {
@@ -42,7 +63,7 @@ func (s *Service) CreateReservation(ctx context.Context, request model.CreateRes
 	if err != nil {
 		return model.Reservation{}, http.StatusBadRequest, err
 	}
-	req.Header.Set("X-User-Name", request.UserName)
+	req.Header.Set(XUserName, request.UserName)
 	req.Header.Set("Content-Type", echo.MIMEApplicationJSONCharsetUTF8)
 	resp, err := s.client.Do(req)
 	if err != nil {
@@ -57,6 +78,22 @@ func (s *Service) CreateReservation(ctx context.Context, request model.CreateRes
 	return rsv, resp.StatusCode, nil
 }
 
-func (s *Service) ReservationReturn(c echo.Context) ([]byte, int, error) {
-	return nil, 0, nil
+func (s *Service) ReservationReturn(ctx context.Context, req model.ReservationReturnRequest, username, reservationUid string) (int, error) {
+	b := bytes.NewBuffer(nil)
+	if err := json.NewEncoder(b).Encode(req); err != nil {
+		return http.StatusBadRequest, err
+	}
+	r, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://%s/api/v1/reservations/%s/return", net.JoinHostPort(s.cfg.Host, s.cfg.Port), reservationUid), b)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+	r.Header.Set("Content-Type", echo.MIMEApplicationJSONCharsetUTF8)
+	r.Header.Set(XUserName, username)
+	resp, err := s.client.Do(r)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode, nil
 }

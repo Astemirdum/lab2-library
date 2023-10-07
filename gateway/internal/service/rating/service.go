@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Astemirdum/library-service/gateway/internal/model"
 	"net"
 	"net/http"
+
+	"github.com/Astemirdum/library-service/gateway/internal/model"
 
 	"github.com/Astemirdum/library-service/gateway/config"
 	"go.uber.org/zap"
@@ -27,7 +28,7 @@ func NewService(log *zap.Logger, cfg config.Config) *Service {
 }
 
 func (s *Service) GetRating(ctx context.Context, userName string) (model.Rating, int, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://%s/api/v1/rating", net.JoinHostPort(s.cfg.Host, s.cfg.Port)), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://%s/api/v1/rating", net.JoinHostPort(s.cfg.Host, s.cfg.Port)), http.NoBody)
 	if err != nil {
 		return model.Rating{}, http.StatusBadRequest, err
 	}

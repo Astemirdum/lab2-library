@@ -9,9 +9,10 @@ import (
 
 //go:generate go run github.com/golang/mock/mockgen -source=service.go -destination=mocks/mock.go
 
-type LibraryService interface {
+type ReservationService interface {
 	CreateReservation(ctx context.Context, req model.CreateReservationRequest) (model.Reservation, error)
-	GetReservation(ctx context.Context) error
+	GetReservations(ctx context.Context, username string) ([]model.Reservation, error)
+	ReservationsReturn(ctx context.Context, username, reservationUid string) error
 }
 
-var _ LibraryService = (*service.Service)(nil)
+var _ ReservationService = (*service.Service)(nil)

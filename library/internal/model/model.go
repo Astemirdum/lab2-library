@@ -17,13 +17,21 @@ type Paging struct {
 }
 
 type Book struct {
-	BookUid        string `json:"bookUid" db:"book_uid"`
-	Name           string `json:"name" db:"name"`
-	Author         string `json:"author" db:"author"`
-	Genre          string `json:"genre" db:"genre"`
-	Condition      string `json:"condition" db:"condition"`
-	AvailableCount int    `json:"availableCount" db:"available_count"`
+	BookUid        string    `json:"bookUid" db:"book_uid"`
+	Name           string    `json:"name" db:"name"`
+	Author         string    `json:"author" db:"author"`
+	Genre          string    `json:"genre" db:"genre"`
+	Condition      Condition `json:"condition" db:"condition"`
+	AvailableCount int       `json:"availableCount" db:"available_count"`
 }
+
+type Condition string
+
+const (
+	ConditionExcellent Condition = "EXCELLENT"
+	ConditionGood      Condition = "GOOD"
+	ConditionBad       Condition = "BAD"
+)
 
 type Library struct {
 	LibraryUid string `json:"libraryUid" db:"library_uid"`

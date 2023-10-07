@@ -33,3 +33,8 @@ type Reservation struct {
 	StartDate      time.Time `json:"startDate" db:"start_date"`
 	TillDate       time.Time `json:"tillDate" db:"till_date"`
 }
+
+type ReservationReturnRequest struct {
+	Condition string `json:"condition" validate:"required,oneof=EXCELLENT GOOD BAD"`
+	Date      Date   `json:"date" validate:"required"`
+}

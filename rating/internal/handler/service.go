@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+
 	ratingModel "github.com/Astemirdum/library-service/rating/internal/model"
 
 	"github.com/Astemirdum/library-service/rating/internal/service"

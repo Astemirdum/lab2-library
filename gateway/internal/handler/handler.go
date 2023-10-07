@@ -11,17 +11,17 @@ import (
 	_ "github.com/Astemirdum/library-service/swagger"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/pkg/errors"
 	echoSwagger "github.com/swaggo/echo-swagger"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"net/http"
 )
 
 type Handler struct {
 	librarySvc     LibraryService
-	ratingSvc      RatingService      //nolint:unused
-	reservationSvc ReservationService //nolint:unused
-	//client         *http.Client
+	ratingSvc      RatingService
+	reservationSvc ReservationService
+	// client         *http.Client
 	log *zap.Logger
 }
 
@@ -69,8 +69,8 @@ func (h *Handler) NewRouter() *echo.Echo {
 	api.GET("/libraries/:libraryUid/books", h.GetBooks)
 
 	api.POST("/reservations", h.CreateReservation)
-	api.GET("/reservations", h.GetReservation)
-	api.POST("/reservations/{reservationUid}/return", h.ReservationReturn)
+	api.GET("/reservations", h.GetReservations)
+	api.POST("/reservations/:reservationUid/return", h.ReservationReturn)
 
 	return e
 }
@@ -79,17 +79,68 @@ func (h *Handler) Health(c echo.Context) error {
 	return c.String(http.StatusOK, "OK")
 }
 
-func (h *Handler) GetReservation(c echo.Context) error {
-	data, code, err := h.reservationSvc.GetReservation(c)
-	if err != nil {
-		return echo.NewHTTPError(code, err.Error())
-	}
-	return c.JSONBlob(code, data)
-}
-
 const (
 	XUserName = "X-User-Name"
 )
+
+func (h *Handler) GetReservations(c echo.Context) error {
+	userName := c.Request().Header.Get(XUserName)
+	if userName == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, errs.ErrUserName)
+	}
+	ctx := c.Request().Context()
+	reserves, code, err := h.reservationSvc.GetReservation(ctx, userName)
+	if err != nil {
+		return echo.NewHTTPError(code, err.Error())
+	}
+
+	gg, ctx := errgroup.WithContext(ctx)
+	libs := make([]model.Library, 0, len(reserves))
+	gg.Go(func() error {
+		for _, reserve := range reserves {
+			lib, code, err := h.librarySvc.GetLibrary(ctx, reserve.LibraryUid)
+			if err != nil {
+				return echo.NewHTTPError(code, err.Error())
+			}
+			libs = append(libs, lib)
+		}
+		return nil
+	})
+	books := make([]model.Book, 0, len(reserves))
+	gg.Go(func() error {
+		for _, reserve := range reserves {
+			book, code, err := h.librarySvc.GetBook(ctx, reserve.LibraryUid, reserve.BookUid)
+			if err != nil {
+				return echo.NewHTTPError(code, err.Error())
+			}
+			books = append(books, book)
+		}
+		return nil
+	})
+
+	if err := gg.Wait(); err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, getReservationResponse(reserves, books, libs))
+}
+
+func getReservationResponse(reserves []model.GetReservation, books []model.Book, libs []model.Library) []model.GetReservationResponse {
+	items := make([]model.GetReservationResponse, 0, len(reserves))
+	for i := range reserves {
+		items = append(items, model.GetReservationResponse{
+			Reservation: model.Reservation{
+				ReservationUid: reserves[i].ReservationUid,
+				Status:         reserves[i].Status,
+				StartDate:      reserves[i].StartDate,
+				TillDate:       reserves[i].TillDate,
+			},
+			Library: libs[i],
+			Book:    books[i],
+		})
+	}
+	return items
+}
 
 func (h *Handler) CreateReservation(c echo.Context) error {
 	var createReservationRequest model.CreateReservationRequest
@@ -130,11 +181,25 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 }
 
 func (h *Handler) ReservationReturn(c echo.Context) error {
-	data, code, err := h.reservationSvc.ReservationReturn(c)
+	ctx := c.Request().Context()
+	username := c.Request().Header.Get(XUserName)
+	if username == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, errs.ErrUserName)
+	}
+	reservationUid := c.Param("reservationUid")
+	var req model.ReservationReturnRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	if err := c.Validate(req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	code, err := h.reservationSvc.ReservationReturn(ctx, req, username, reservationUid)
 	if err != nil {
 		return echo.NewHTTPError(code, err.Error())
 	}
-	return c.JSONBlob(code, data)
+
+	return c.NoContent(code)
 }
 
 func (h *Handler) GetBooks(c echo.Context) error {
@@ -159,35 +224,4 @@ func (h *Handler) GetLibraries(c echo.Context) error {
 		return echo.NewHTTPError(code, err.Error())
 	}
 	return c.JSONBlob(code, data)
-}
-
-func (h *Handler) CreateLibrary(c echo.Context) error {
-	var pers model.Library
-	if err := c.Bind(&pers); err != nil {
-		return httpValidationError(c, http.StatusBadRequest, err)
-	}
-	if err := c.Validate(pers); err != nil {
-		return httpValidationError(c, http.StatusBadRequest, err)
-	}
-	//ctx := c.Request().Context()
-	//id, err := h.reservationSvc.CreateReservation(ctx)
-	//if err != nil {
-	//	return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	//}
-	//c.Response().Header().Set("Location", fmt.Sprintf("/api/v1/librarys/%d", id))
-
-	return c.String(http.StatusCreated, "OK")
-}
-
-func httpValidationError(c echo.Context, code int, err error) error {
-	c.Response().WriteHeader(code)
-	_ = c.JSON(code, &errs.ValidationErrorResponse{ //nolint:errcheck
-		Message: err.Error(),
-		Errors: struct {
-			AdditionalProperties string `json:"additionalProperties"`
-		}{
-			AdditionalProperties: "",
-		},
-	})
-	return errors.New("")
 }

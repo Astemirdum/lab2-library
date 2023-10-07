@@ -5,9 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Astemirdum/library-service/gateway/internal/errs"
 	"net"
 	"net/http"
+
+	"github.com/Astemirdum/library-service/gateway/internal/errs"
 
 	"github.com/Astemirdum/library-service/gateway/internal/model"
 

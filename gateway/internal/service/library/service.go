@@ -5,11 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Astemirdum/library-service/gateway/internal/errs"
 	"io"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/Astemirdum/library-service/gateway/internal/errs"
 
 	"github.com/Astemirdum/library-service/gateway/config"
 	"github.com/Astemirdum/library-service/gateway/internal/model"

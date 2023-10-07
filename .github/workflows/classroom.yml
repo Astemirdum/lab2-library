@@ -1,0 +1,215 @@
+name: GitHub Classroom Workflow
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    #if: github.repository == 'skip'
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Set Up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.21
+
+      # Linter
+      - name: Install dependencies
+        run: |
+          go version
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.52.2
+      - name: Linter
+        run: |
+          make lint
+
+      - name: Go Format
+        run: gofmt -s -w . && git diff --exit-code
+      - name: Go Vet
+        run: go vet ./...
+      - name: Go Tidy
+        run: go mod tidy && git diff --exit-code
+      - name: Go Mod
+        run: go mod download
+      - name: Go Mod Verify
+        run: go mod verify
+
+      # unit-tests
+      - name: Test
+        run: make test
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v3
+        continue-on-error: true
+        with:
+          token: ${{secrets.CODECOV_TOKEN}}
+          file: ./cover.out
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v2
+        with:
+          name: code-coverage-report
+          path: coverage.html
+
+  test:
+    #    if: github.repository == 'skip'
+    name: Integration Test
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Code
+        uses: actions/checkout@v3
+
+#      - uses: docker/setup-buildx-action@v3
+
+      - name: Run containers
+        timeout-minutes: 5
+        run: |
+          docker compose --env-file .env up -d --build
+          chmod +x wait-script.sh
+          bash scripts/wait-script.sh
+        env:
+          WAIT_PORTS: 8080,8070,8060,8050
+
+      - name: Run API Tests
+        uses: matt-ball/newman-action@master
+        with:
+          collection:  postman/collection.json
+          environment: postman/environment.json
+          delayRequest: 100
+          reporters: '[ "cli" ]'
+
+      - uses: education/autograding@v1
+        id: autograder
+        continue-on-error: true
+
+      - name: Github auto grader mark
+        continue-on-error: true
+        uses: Romanow/google-sheet-autograder-marker@v1.0
+        with:
+          google_token: ${{secrets.GOOGLE_API_KEY}}
+          sheet_id: "1xkgjUX6Qmk7rdJG-QPOToav-HWWtthJjnShIKnw3oIY"
+          homework_number: 2
+          user_column: 'D'
+          column_offset: 'F'
+          mark: "'+"
+
+      - name: Stop containers
+        if: always()
+        continue-on-error: true
+        run: docker compose down -v
+
+  publish:
+    #    if: github.repository == 'skip'
+    name: Publish to Docker Hub
+    runs-on: ubuntu-latest
+    env:
+#      IMAGE_NAME:
+#      IMAGE_TAG:
+      COMMIT_HASH: ${{ github.sha }}
+    needs: test
+    steps:
+      - name: Code
+        uses: actions/checkout@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+    #  - name: Set env version
+    #    run: echo "IMAGE_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build images
+        timeout-minutes: 10
+        run: docker compose -f ./docker-compose.yaml --env-file .env build
+
+      - name: Push images
+        run: docker compose -f ./docker-compose.yaml --env-file .env push
+
+  deploy:
+    #    if: github.repository == 'skip'
+    #    if: ${{ github.event.workflow_run.publish == 'success' }}
+    runs-on: ubuntu-latest
+    needs: publish
+
+    # if: always() # success()
+    environment: production
+    concurrency: production
+
+    env:
+      WORK_DIR: ~/app
+    steps:
+      - name: Code
+        uses: actions/checkout@v3
+
+      - name: Transfer compose
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "docker-compose.yaml,.env"
+          target: "/${{ secrets.SSH_USER }}"
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+            docker compose -f ./docker-compose.yaml --env-file .env pull
+            docker compose -f ./docker-compose.yaml --env-file .env down || echo 'no compose'
+            docker compose -f ./docker-compose.yaml --env-file .env up -d
+
+  deploy-render:
+    if: github.repository == 'skip'
+    name: Deploy to Render
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Trigger deploy via Render API
+        env:
+          deploy_url: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run:
+          curl "$deploy_url"
+
+      - name: Sleep for 5 sec
+        run: sleep 5s
+        shell: bash
+
+      - name: Wait for Render Deployment
+        uses: bounceapp/render-action@0.6.0
+        with:
+          render-token: ${{ secrets.RENDER_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          service-id: srv-ck234d09ugtj9ce234c4ervr0?key=DUrr_zokiXk
+          retries: 20
+          wait: 30000
+          sleep: 30000
+
+      - name: Run API Tests
+        uses: matt-ball/newman-action@master
+        with:
+          collection: postman/collection.json
+          environment: postman/render-environment.json
+          delayRequest: 100
+          reporters: '[ "cli" ]'
+

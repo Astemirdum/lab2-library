@@ -1,0 +1,89 @@
+version: "3.9"
+services:
+  gateway-service:
+    build:
+      context: docker
+      dockerfile: gateway.Dockerfile
+    image: ${GATEWAY_IMAGE_NAME}:${GATEWAY_IMAGE_TAG}
+    restart: unless-stopped
+    container_name: gateway-service
+    ports:
+      - "${GATEWAY_HTTP_PORT}:${GATEWAY_HTTP_PORT}"
+    networks:
+      - library
+
+  library-service:
+    build:
+      context: docker
+      dockerfile: library.Dockerfile
+    image: ${LIBRARY_IMAGE_NAME}:${LIBRARY_IMAGE_TAG}
+    restart: unless-stopped
+    container_name: library-service
+    environment:
+      - DB_HOST=postgres
+      - DB_NAME=libraries
+    ports:
+      - "${LIBRARY_HTTP_PORT}:${LIBRARY_HTTP_PORT}"
+    depends_on:
+      - postgres
+      - gateway-service
+    networks:
+      - library
+
+  reservation-service:
+    build:
+      context: docker
+      dockerfile: reservation.Dockerfile
+    image: ${RESERVATION_IMAGE_NAME}:${RESERVATION_IMAGE_TAG}
+    restart: unless-stopped
+    container_name: reservation-service
+    environment:
+      - DB_HOST=postgres
+      - DB_NAME=reservations
+    ports:
+      - "${RESERVATION_HTTP_PORT}:${RESERVATION_HTTP_PORT}"
+    depends_on:
+      - postgres
+      - gateway-service
+    networks:
+      - library
+
+  rating-service:
+    build:
+      context: docker
+      dockerfile: rating.Dockerfile
+    image: ${RATING_IMAGE_NAME}:${RATING_IMAGE_TAG}
+    restart: unless-stopped
+    container_name: rating-service
+    environment:
+      - DB_HOST=postgres
+      - DB_NAME=ratings
+    ports:
+      - "${RATING_HTTP_PORT}:${RATING_HTTP_PORT}"
+    depends_on:
+      - postgres
+      - gateway-service
+    networks:
+      - library
+
+  postgres:
+    image: postgres:15.2-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./postgres/:/docker-entrypoint-initdb.d/
+    ports:
+      - "5432:5432"
+    networks:
+      - library
+
+networks:
+  library:
+
+volumes:
+  db-data:

@@ -6,16 +6,16 @@ import (
 )
 
 type CreateReservationResponse struct {
-	Reservation Reservation `json:",inline"`
-	Library     Library     `json:"library"`
-	Book        Book        `json:"book"`
-	Rating      Rating      `json:"rating"`
+	Reservation `json:",inline"`
+	Library     Library `json:"library"`
+	Book        Book    `json:"book"`
+	Rating      Rating  `json:"rating"`
 }
 
 type GetReservationResponse struct {
-	Reservation Reservation `json:",inline"`
-	Library     Library     `json:"library"`
-	Book        Book        `json:"book"`
+	Reservation `json:",inline"`
+	Library     Library `json:"library"`
+	Book        Book    `json:"book"`
 }
 
 type CreateReservationRequest struct {

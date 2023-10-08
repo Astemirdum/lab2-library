@@ -115,7 +115,9 @@ func (h *Handler) ReservationsReturn(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, errs.ErrUserName)
 	}
 	reservationUid := c.Param("reservationUid")
-
+	if reservationUid == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "reservationUid is empty")
+	}
 	var req model.ReservationReturnRequest
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())

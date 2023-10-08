@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Astemirdum/library-service/gateway/internal/errs"
+
 	"github.com/Astemirdum/library-service/gateway/config"
 	"github.com/Astemirdum/library-service/gateway/internal/model"
 	"github.com/labstack/echo/v4"
@@ -47,6 +49,10 @@ func (s *Service) GetReservation(ctx context.Context, username string) ([]model.
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode >= 400 {
+		return nil, resp.StatusCode, errs.ErrDefault
+	}
+
 	var rsv []model.GetReservation
 	if err := json.NewDecoder(resp.Body).Decode(&rsv); err != nil {
 		return nil, http.StatusBadRequest, err
@@ -71,6 +77,9 @@ func (s *Service) CreateReservation(ctx context.Context, request model.CreateRes
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode >= 400 {
+		return model.Reservation{}, resp.StatusCode, errs.ErrDefault
+	}
 	var rsv model.Reservation
 	if err := json.NewDecoder(resp.Body).Decode(&rsv); err != nil {
 		return model.Reservation{}, http.StatusBadRequest, err
@@ -98,6 +107,9 @@ func (s *Service) ReservationReturn(ctx context.Context, req model.ReservationRe
 	var res model.ReservationReturnResponse
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		return model.ReservationReturnResponse{}, http.StatusBadRequest, err
+	}
+	if resp.StatusCode >= 400 {
+		return model.ReservationReturnResponse{}, resp.StatusCode, errs.ErrDefault
 	}
 	return res, resp.StatusCode, nil
 }

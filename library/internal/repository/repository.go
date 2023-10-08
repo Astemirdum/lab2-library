@@ -50,7 +50,6 @@ func (r *repository) GetBook(ctx context.Context, libraryUid, bookUid string) (m
 		Join(fmt.Sprintf("%s l on l.id = lb.library_id", libraryTableName)).
 		Where(sq.Eq{"library_uid": libraryUid}).
 		Where(sq.Eq{"book_uid": bookUid}).
-		Where(sq.Gt{"available_count": 0}).
 		Limit(1).
 		ToSql()
 	if err != nil {

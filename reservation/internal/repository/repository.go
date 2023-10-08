@@ -47,7 +47,7 @@ func (r *repository) ReservationsReturn(ctx context.Context, username, reservati
 	set status = case when date(now()) > till_date 
 	    then 'EXPIRED' else 'RETURNED' end
 	where reservation_uid = $1 and username = $2 and status='RENTED'
-	returning book_uid, library_uid`, reservationTableName)
+	returning library_uid, book_uid`, reservationTableName)
 
 	var resp model.ReservationReturnResponse
 	err := r.db.QueryRowContext(ctx, q, reservationUid, username).Scan(&resp.LibraryUid, &resp.BookUid)

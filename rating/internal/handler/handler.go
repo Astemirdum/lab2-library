@@ -11,8 +11,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"go.uber.org/zap"
-
-	_ "github.com/Astemirdum/library-service/swagger"
 )
 
 type Handler struct {

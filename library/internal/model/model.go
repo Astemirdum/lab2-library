@@ -2,12 +2,12 @@ package model
 
 type ListLibraries struct {
 	Paging `json:",inline"`
-	Items  []Library
+	Items  []Library `json:"items"`
 }
 
 type ListBooks struct {
 	Paging `json:",inline"`
-	Items  []Book
+	Items  []Book `json:"items"`
 }
 
 type Paging struct {

@@ -11,7 +11,11 @@ run-svc: #  make run-svc svc=redis
 
 .PHONY: stop
 stop:
-	docker compose -f ./docker-compose.yaml --env-file $(ENV) down
+	docker compose -f ./docker-compose.yaml --env-file $(ENV) down #--volumes
+
+.PHONY: remove-volume
+remove-volume:
+	docker volume rm lab2-template_db-data
 
 #.PHONY: migrate-up
 #migrate-up:

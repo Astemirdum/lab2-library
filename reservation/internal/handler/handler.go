@@ -12,10 +12,7 @@ import (
 	"github.com/Astemirdum/library-service/pkg/validate"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	echoSwagger "github.com/swaggo/echo-swagger"
 	"go.uber.org/zap"
-
-	_ "github.com/Astemirdum/library-service/swagger"
 )
 
 type Handler struct {
@@ -53,7 +50,6 @@ func (h *Handler) NewRouter() *echo.Echo {
 
 	base := e.Group("", newRateLimiterMW(baseRPS))
 	base.GET("/manage/health", h.Health)
-	base.GET("/swagger/*", echoSwagger.WrapHandler)
 
 	e.Validator = validate.NewCustomValidator()
 	api := e.Group("/api/v1",

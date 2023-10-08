@@ -1,24 +1,28 @@
 version: "3.9"
 services:
-  gateway-service:
+  gateway:
     build:
-      context: docker
-      dockerfile: gateway.Dockerfile
+      context: .
+      dockerfile: docker/gateway.Dockerfile
     image: ${GATEWAY_IMAGE_NAME}:${GATEWAY_IMAGE_TAG}
     restart: unless-stopped
-    container_name: gateway-service
+    container_name: gateway
+    environment:
+      - LIBRARY_HTTP_HOST=library
+      - RESERVATION_HTTP_HOST=reservation
+      - RATING_HTTP_HOST=rating
     ports:
       - "${GATEWAY_HTTP_PORT}:${GATEWAY_HTTP_PORT}"
     networks:
       - library
 
-  library-service:
+  library:
     build:
-      context: docker
-      dockerfile: library.Dockerfile
+      context: .
+      dockerfile: docker/library.Dockerfile
     image: ${LIBRARY_IMAGE_NAME}:${LIBRARY_IMAGE_TAG}
     restart: unless-stopped
-    container_name: library-service
+    container_name: library
     environment:
       - DB_HOST=postgres
       - DB_NAME=libraries
@@ -26,17 +30,17 @@ services:
       - "${LIBRARY_HTTP_PORT}:${LIBRARY_HTTP_PORT}"
     depends_on:
       - postgres
-      - gateway-service
+      - gateway
     networks:
       - library
 
-  reservation-service:
+  reservation:
     build:
-      context: docker
-      dockerfile: reservation.Dockerfile
+      context: .
+      dockerfile: docker/reservation.Dockerfile
     image: ${RESERVATION_IMAGE_NAME}:${RESERVATION_IMAGE_TAG}
     restart: unless-stopped
-    container_name: reservation-service
+    container_name: reservation
     environment:
       - DB_HOST=postgres
       - DB_NAME=reservations
@@ -44,17 +48,17 @@ services:
       - "${RESERVATION_HTTP_PORT}:${RESERVATION_HTTP_PORT}"
     depends_on:
       - postgres
-      - gateway-service
+      - gateway
     networks:
       - library
 
-  rating-service:
+  rating:
     build:
-      context: docker
-      dockerfile: rating.Dockerfile
+      context: .
+      dockerfile: docker/rating.Dockerfile
     image: ${RATING_IMAGE_NAME}:${RATING_IMAGE_TAG}
     restart: unless-stopped
-    container_name: rating-service
+    container_name: rating
     environment:
       - DB_HOST=postgres
       - DB_NAME=ratings
@@ -62,7 +66,7 @@ services:
       - "${RATING_HTTP_PORT}:${RATING_HTTP_PORT}"
     depends_on:
       - postgres
-      - gateway-service
+      - gateway
     networks:
       - library
 

@@ -73,7 +73,7 @@ jobs:
 #      - uses: docker/setup-buildx-action@v3
 
       - name: Run containers
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: |
           docker compose --env-file .env up -d --build
           chmod +x scripts/wait-script.sh

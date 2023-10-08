@@ -62,9 +62,10 @@ jobs:
 
   test:
     #    if: github.repository == 'skip'
+    #    needs: build
     name: Integration Test
     runs-on: ubuntu-latest
-    needs: build
+
     steps:
       - name: Code
         uses: actions/checkout@v3

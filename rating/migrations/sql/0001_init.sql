@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS rating
         CHECK (stars BETWEEN 0 AND 100)
 );
 
-insert into rating (username, stars) VALUES ('Test Max', 90);
+insert into rating (username, stars) VALUES ('Test Max', 75);
 
 -- +goose Down
 DROP TABLE IF EXISTS rating CASCADE;

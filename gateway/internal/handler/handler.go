@@ -199,10 +199,13 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, model.CreateReservationResponse{
-		Reservation: rsv,
-		Library:     lib.Library,
-		Book:        book.Book,
-		Rating:      rat,
+		ReservationUid: rsv.ReservationUid,
+		Status:         rsv.Status,
+		StartDate:      model.Date2{Time: rsv.StartDate},
+		TillDate:       model.Date2{Time: rsv.TillDate},
+		Library:        lib.Library,
+		Book:           book.Book,
+		Rating:         rat,
 	})
 }
 

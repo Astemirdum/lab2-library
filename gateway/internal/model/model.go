@@ -1,15 +1,19 @@
 package model
 
 import (
+	"fmt"
 	"strings"
 	"time"
 )
 
 type CreateReservationResponse struct {
-	Reservation `json:",inline"`
-	Library     Library `json:"library"`
-	Book        Book    `json:"book"`
-	Rating      Rating  `json:"rating"`
+	ReservationUid string  `json:"reservationUid"`
+	Status         string  `json:"status"`
+	StartDate      Date2   `json:"startDate"`
+	TillDate       Date2   `json:"tillDate"`
+	Library        Library `json:"library"`
+	Book           Book    `json:"book"`
+	Rating         Rating  `json:"rating"`
 }
 
 type GetReservationResponse struct {
@@ -40,9 +44,13 @@ func (d *Date) UnmarshalJSON(b []byte) (err error) {
 	return
 }
 
-//func (d *Date) MarshalJSON() ([]byte, error) {
-//	return []byte(fmt.Sprintf(`"%s"`, d.Format(time.DateOnly))), nil
-//}
+type Date2 struct {
+	time.Time `json:",inline"`
+}
+
+func (d Date2) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf(`"%s"`, d.Local().Format(time.DateOnly))), nil
+}
 
 type Library struct {
 	LibraryUid string `json:"libraryUid"`

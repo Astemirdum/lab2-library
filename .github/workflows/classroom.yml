@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    #if: github.repository == 'skip'
+    if: github.repository == 'skip'
     name: build
     runs-on: ubuntu-latest
     steps:
@@ -75,7 +75,7 @@ jobs:
         timeout-minutes: 5
         run: |
           docker compose --env-file .env up -d --build
-          chmod +x wait-script.sh
+          chmod +x scripts/wait-script.sh
           bash scripts/wait-script.sh
         env:
           WAIT_PORTS: 8080,8070,8060,8050

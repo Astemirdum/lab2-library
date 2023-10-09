@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    if: github.repository == 'skip'
+#    if: github.repository == 'skip'
     name: build
     runs-on: ubuntu-latest
     steps:
@@ -61,7 +61,7 @@ jobs:
           path: coverage.html
 
   test:
-    if: github.repository == 'skip'
+#    if: github.repository == 'skip'
     needs: build
     name: Integration Test
     runs-on: ubuntu-latest
@@ -174,8 +174,8 @@ jobs:
           script: |
             echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
             docker compose -f ./docker-compose.yaml --env-file .env pull
-            docker compose -f ./docker-compose.yaml --env-file .env down || echo 'no compose'
-            docker compose -f ./docker-compose.yaml --env-file .env up -d
+            docker compose -f ./docker-compose.yaml --env-file .env down --volumes || echo 'no compose'
+            docker compose -f ./docker-compose.yaml --env-file .env up --build -d
 
   deploy-render:
     if: github.repository == 'skip'

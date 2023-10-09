@@ -61,8 +61,8 @@ jobs:
           path: coverage.html
 
   test:
-    #    if: github.repository == 'skip'
-    #    needs: build
+    if: github.repository == 'skip'
+    needs: build
     name: Integration Test
     runs-on: ubuntu-latest
 
@@ -110,14 +110,14 @@ jobs:
         run: docker compose down -v
 
   publish:
-    #    if: github.repository == 'skip'
+#    if: github.repository == 'skip'
+#    needs: test
     name: Publish to Docker Hub
     runs-on: ubuntu-latest
     env:
 #      IMAGE_NAME:
 #      IMAGE_TAG:
       COMMIT_HASH: ${{ github.sha }}
-    needs: test
     steps:
       - name: Code
         uses: actions/checkout@v3
@@ -146,7 +146,6 @@ jobs:
     #    if: ${{ github.event.workflow_run.publish == 'success' }}
     runs-on: ubuntu-latest
     needs: publish
-
     # if: always() # success()
     environment: production
     concurrency: production

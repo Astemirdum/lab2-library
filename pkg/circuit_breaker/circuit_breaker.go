@@ -2,7 +2,6 @@ package circuit_breaker
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 )
@@ -61,7 +60,7 @@ func (cb *circuitBreaker) Call(service func() error) error {
 	cb.mu.Lock()
 	if cb.state == Open {
 		if elapsed := time.Since(cb.lastAttemptedAt); elapsed > cb.timeout {
-			fmt.Printf("\nSWITCHING TO HALFOPEN\n")
+			// fmt.Printf("\nSWITCHING TO HALFOPEN\n")
 			cb.state = HalfOpen
 			cb.successCount = 0
 		} else {
@@ -81,7 +80,7 @@ func (cb *circuitBreaker) Call(service func() error) error {
 
 	if cb.state == HalfOpen {
 		if err != nil {
-			fmt.Printf("\nSwitching back to open state due to an error\n")
+			// fmt.Printf("\nSwitching back to open state due to an error\n")
 
 			cb.successCount = 0
 			cb.state = Open
@@ -89,7 +88,7 @@ func (cb *circuitBreaker) Call(service func() error) error {
 		} else {
 			cb.successCount++
 			if cb.successCount > cb.recoveryRequests {
-				fmt.Printf("\nSwitching to closed state\n")
+				// fmt.Printf("\nSwitching to closed state\n")
 				cb.Reset()
 			}
 		}
@@ -104,7 +103,7 @@ func (cb *circuitBreaker) Call(service func() error) error {
 		}
 	}
 	if float64(fails)/float64(cb.recordLength) >= cb.percentile {
-		fmt.Printf("\nSwitching to open state due to exceeding percentile\n\n")
+		// 	fmt.Printf("\nSwitching to open state due to exceeding percentile\n\n")
 
 		cb.state = Open
 		cb.successCount = 0

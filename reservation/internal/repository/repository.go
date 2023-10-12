@@ -120,7 +120,7 @@ func (r *repository) CreateReservation(ctx context.Context, req model.CreateRese
 
 	ress := make([]model.Reservation, 0, len(ids))
 	for _, uid := range ids {
-		_, err := result.Exec()
+		rows, err := result.Query()
 		var pgErr *pgconn.PgError
 		if err != nil {
 			if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
@@ -128,10 +128,6 @@ func (r *repository) CreateReservation(ctx context.Context, req model.CreateRese
 			} else {
 				return model.Reservation{}, fmt.Errorf("unable to insert row: %w", err)
 			}
-		}
-		rows, err := result.Query()
-		if err != nil {
-			return model.Reservation{}, fmt.Errorf("result.Query: %w", err)
 		}
 		res, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[model.Reservation])
 		if err != nil {

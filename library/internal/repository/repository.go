@@ -46,7 +46,7 @@ const (
 var qb = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
 func (r *repository) GetBook(ctx context.Context, libraryUid, bookUid string) (model.Book, error) {
-	query, args, err := qb.Select("b.id", "book_uid", "b.name", "author", "genre", "condition").
+	query, args, err := qb.Select("b.id", "book_uid", "b.name", "author", "genre", "condition", "available_count").
 		From(booksTableName + " b").
 		Join(fmt.Sprintf("%s lb on b.id = lb.book_id", libraryBooksTableName)).
 		Join(fmt.Sprintf("%s l on l.id = lb.library_id", libraryTableName)).
@@ -78,13 +78,18 @@ func (r *repository) GetBook(ctx context.Context, libraryUid, bookUid string) (m
 func (r *repository) AvailableCount(ctx context.Context, libraryID, bookID int, isReturn bool) error {
 	q := `
 update library_books
-    set available_count = available_count + $3
-where library_id = $1 and book_id = $2`
+    set available_count = available_count + @inc
+where library_id = @library_id and book_id = @book_id`
 	inc := 1
 	if !isReturn {
 		inc = -1
 	}
-	_, err := r.db.Exec(ctx, q, libraryID, bookID, inc)
+	args := pgx.NamedArgs{
+		"library_id": libraryID,
+		"book_id":    bookID,
+		"inc":        inc,
+	}
+	_, err := r.db.Exec(ctx, q, args)
 	return err
 }
 
@@ -116,7 +121,7 @@ func (r *repository) GetLibrary(ctx context.Context, libraryUid string) (model.L
 }
 
 func (r *repository) ListLibrary(ctx context.Context, city string, page, size int) (model.ListLibraries, error) {
-	q := qb.Select("library_uid", "name", "city", "address").
+	q := qb.Select("id", "library_uid", "name", "city", "address").
 		From(libraryTableName).
 		Where(sq.Eq{"city": city})
 
@@ -150,7 +155,7 @@ func (r *repository) ListLibrary(ctx context.Context, city string, page, size in
 }
 
 func (r *repository) ListBooks(ctx context.Context, libraryUid string, showAll bool, page, size int) (model.ListBooks, error) {
-	q := qb.Select("book_uid", "b.name", "author", "genre", "condition", "available_count").
+	q := qb.Select("b.id", "book_uid", "b.name", "author", "genre", "condition", "available_count").
 		From(booksTableName + " b").
 		Join(fmt.Sprintf("%s lb on b.id = lb.book_id", libraryBooksTableName)).
 		Join(fmt.Sprintf("%s l on l.id = lb.library_id", libraryTableName)).

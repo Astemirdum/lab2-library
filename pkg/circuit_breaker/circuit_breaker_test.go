@@ -10,6 +10,7 @@ import (
 )
 
 func Test_circuitBreaker_Call(t *testing.T) {
+	t.Parallel()
 	type fields struct {
 		recordLength     int
 		timeout          time.Duration

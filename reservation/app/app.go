@@ -22,7 +22,7 @@ import (
 
 func Run(cfg *config.Config) {
 	log := logger.NewLogger(cfg.Log, "reservation")
-	db, err := postgres.NewPostgresDB(&cfg.Database, migrations.MigrationFiles)
+	db, err := postgres.NewPostgresDB(context.Background(), &cfg.Database, migrations.MigrationFiles)
 	if err != nil {
 		log.Fatal("db init", zap.Error(err))
 	}
@@ -56,8 +56,6 @@ func Run(cfg *config.Config) {
 	if err = srv.Stop(closeCtx); err != nil {
 		log.DPanic("srv.Stop", zap.Error(err))
 	}
-	if err = db.Close(); err != nil {
-		log.DPanic(" db.Close()", zap.Error(err))
-	}
+	db.Close()
 	log.Info("Graceful shutdown finished")
 }

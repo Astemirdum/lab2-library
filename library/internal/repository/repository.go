@@ -5,13 +5,15 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/Astemirdum/library-service/library/internal/errs"
 	"github.com/pkg/errors"
 
 	sq "github.com/Masterminds/squirrel"
 
 	"github.com/Astemirdum/library-service/library/internal/model"
-	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 )
 
@@ -24,11 +26,11 @@ type Repository interface {
 }
 
 type repository struct {
-	db  *sqlx.DB
+	db  *pgxpool.Pool
 	log *zap.Logger
 }
 
-func NewRepository(db *sqlx.DB, log *zap.Logger) (*repository, error) {
+func NewRepository(db *pgxpool.Pool, log *zap.Logger) (*repository, error) {
 	return &repository{
 		db:  db,
 		log: log.Named("repo"),
@@ -56,9 +58,14 @@ func (r *repository) GetBook(ctx context.Context, libraryUid, bookUid string) (m
 		return model.Book{}, err
 	}
 
-	var book model.Book
-	if err := r.db.GetContext(ctx, &book, query, args...); err != nil {
-		r.log.Error("GetBook", zap.String("q", query), zap.Any("args", args))
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return model.Book{}, err
+	}
+	defer rows.Close()
+
+	book, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[model.Book])
+	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Book{}, errs.ErrNotFound
 		}
@@ -77,7 +84,7 @@ where library_id = $1 and book_id = $2`
 	if !isReturn {
 		inc = -1
 	}
-	_, err := r.db.ExecContext(ctx, q, libraryID, bookID, inc)
+	_, err := r.db.Exec(ctx, q, libraryID, bookID, inc)
 	return err
 }
 
@@ -91,8 +98,14 @@ func (r *repository) GetLibrary(ctx context.Context, libraryUid string) (model.L
 		return model.Library{}, err
 	}
 
-	var lib model.Library
-	if err := r.db.GetContext(ctx, &lib, query, args...); err != nil {
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return model.Library{}, err
+	}
+	defer rows.Close()
+
+	lib, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[model.Library])
+	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Library{}, errs.ErrNotFound
 		}
@@ -116,11 +129,16 @@ func (r *repository) ListLibrary(ctx context.Context, city string, page, size in
 		return model.ListLibraries{}, err
 	}
 
-	var libs []model.Library
-	if err := r.db.SelectContext(ctx, &libs, query, args...); err != nil {
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
 		return model.ListLibraries{}, err
 	}
+	defer rows.Close()
 
+	libs, err := pgx.CollectRows(rows, pgx.RowToStructByName[model.Library])
+	if err != nil {
+		return model.ListLibraries{}, fmt.Errorf("pgx.CollectRows: %w", err)
+	}
 	return model.ListLibraries{
 		Paging: model.Paging{
 			Page:          page,
@@ -151,8 +169,14 @@ func (r *repository) ListBooks(ctx context.Context, libraryUid string, showAll b
 	}
 	r.log.Debug("ListBooks", zap.String("query", query), zap.Any("args", args))
 
-	var books []model.Book
-	if err := r.db.SelectContext(ctx, &books, query, args...); err != nil {
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return model.ListBooks{}, err
+	}
+	defer rows.Close()
+
+	books, err := pgx.CollectRows(rows, pgx.RowToStructByName[model.Book])
+	if err != nil {
 		return model.ListBooks{}, err
 	}
 

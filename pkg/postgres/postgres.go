@@ -1,12 +1,14 @@
 package postgres
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"io/fs"
+	"sync"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	goose "github.com/pressly/goose/v3"
 )
@@ -19,27 +21,40 @@ type DB struct {
 	NameDB   string `yaml:"dbname" envconfig:"DB_NAME"`
 }
 
-func NewPostgresDB(cfg *DB, fsys fs.FS) (*sqlx.DB, error) {
+var (
+	pgOnce     sync.Once
+	pgInstance *pgxpool.Pool
+)
+
+func NewPostgresDB(ctx context.Context, cfg *DB, fsys fs.FS) (*pgxpool.Pool, error) {
 	if err := migrateSchema(cfg, fsys); err != nil {
 		return nil, err
 	}
-	return newDB(cfg)
+	return newDB(ctx, cfg)
 }
 
-func newDB(cfg *DB) (*sqlx.DB, error) {
-	db, err := sqlx.Open("pgx", newDSN(cfg))
-	if err != nil {
-		return nil, err
-	}
-	if err = db.Ping(); err != nil {
-		return nil, fmt.Errorf("db master ping: %w", err)
-	}
-	return db, nil
+func newDB(ctx context.Context, cfg *DB) (*pgxpool.Pool, error) {
+	var err error
+	pgOnce.Do(func() {
+		pgInstance, err = pgxpool.New(ctx, newDBURL(cfg))
+		if err != nil {
+			panic(err)
+		}
+		if err = pgInstance.Ping(ctx); err != nil {
+			panic(err)
+		}
+	})
+
+	return pgInstance, nil
 }
 
 func newDSN(cfg *DB) string {
 	return fmt.Sprintf("host=%s port=%d user=%s dbname=%s password=%s sslmode=disable",
 		cfg.Host, cfg.Port, cfg.Username, cfg.NameDB, cfg.Password)
+}
+
+func newDBURL(cfg *DB) string {
+	return fmt.Sprintf("postgresql://%s:%s@%s:%d/%s", cfg.Username, cfg.Password, cfg.Host, cfg.Port, cfg.NameDB)
 }
 
 func migrateSchema(cfg *DB, fsys fs.FS) error {

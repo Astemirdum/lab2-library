@@ -90,31 +90,49 @@ func (h *Handler) GetReservations(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, errs.ErrUserName)
 	}
 	ctx := c.Request().Context()
-	reserves, code, err := h.reservationSvc.GetReservation(ctx, userName)
-	if err != nil {
-		return echo.NewHTTPError(code, err.Error())
+
+	var reserves []model.GetReservation
+	if err := h.reservationSvc.CB().Call(func() error {
+		list, code, err := h.reservationSvc.GetReservation(ctx, userName)
+		if err != nil {
+			return echo.NewHTTPError(code, err.Error())
+		}
+		reserves = list
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	gg, ctx := errgroup.WithContext(ctx)
 	libs := make([]model.Library, 0, len(reserves))
 	gg.Go(func() error {
 		for _, reserve := range reserves {
-			lib, code, err := h.librarySvc.GetLibrary(ctx, reserve.LibraryUid)
-			if err != nil {
-				return echo.NewHTTPError(code, err.Error())
+			if err := h.librarySvc.CB().Call(func() error {
+				lib, code, err := h.librarySvc.GetLibrary(ctx, reserve.LibraryUid)
+				if err != nil {
+					return echo.NewHTTPError(code, err.Error())
+				}
+				libs = append(libs, lib.Library)
+				return nil
+			}); err != nil {
+				return err
 			}
-			libs = append(libs, lib.Library)
 		}
 		return nil
 	})
 	books := make([]model.Book, 0, len(reserves))
 	gg.Go(func() error {
 		for _, reserve := range reserves {
-			book, code, err := h.librarySvc.GetBook(ctx, reserve.LibraryUid, reserve.BookUid)
-			if err != nil {
-				return echo.NewHTTPError(code, err.Error())
+			if err := h.librarySvc.CB().Call(func() error {
+				book, code, err := h.librarySvc.GetBook(ctx, reserve.LibraryUid, reserve.BookUid)
+				if err != nil {
+					return echo.NewHTTPError(code, err.Error())
+				}
+				books = append(books, book.Book)
+				return nil
+			}); err != nil {
+				return err
 			}
-			books = append(books, book.Book)
 		}
 		return nil
 	})
@@ -162,27 +180,33 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 	)
 	gg, ctxCancel := errgroup.WithContext(ctx)
 	gg.Go(func() error {
-		lib, code, err = h.librarySvc.GetLibrary(ctxCancel, createReservationRequest.LibraryUid)
-		if err != nil {
-			return echo.NewHTTPError(code, err.Error())
-		}
-		return nil
+		return h.librarySvc.CB().Call(func() error {
+			lib, code, err = h.librarySvc.GetLibrary(ctxCancel, createReservationRequest.LibraryUid)
+			if err != nil {
+				return echo.NewHTTPError(code, err.Error())
+			}
+			return nil
+		})
 	})
 
 	gg.Go(func() error {
-		book, code, err = h.librarySvc.GetBook(ctxCancel, createReservationRequest.LibraryUid, createReservationRequest.BookUid)
-		if err != nil {
-			return echo.NewHTTPError(code, err.Error())
-		}
-		return nil
+		return h.librarySvc.CB().Call(func() error {
+			book, code, err = h.librarySvc.GetBook(ctxCancel, createReservationRequest.LibraryUid, createReservationRequest.BookUid)
+			if err != nil {
+				return echo.NewHTTPError(code, err.Error())
+			}
+			return nil
+		})
 	})
 
 	gg.Go(func() error {
-		rat, code, err = h.ratingSvc.GetRating(ctxCancel, createReservationRequest.UserName)
-		if err != nil {
-			return echo.NewHTTPError(code, err.Error())
-		}
-		return nil
+		return h.ratingSvc.CB().Call(func() error {
+			rat, code, err = h.ratingSvc.GetRating(ctxCancel, createReservationRequest.UserName)
+			if err != nil {
+				return echo.NewHTTPError(code, err.Error())
+			}
+			return nil
+		})
 	})
 
 	if err := gg.Wait(); err != nil {
@@ -233,19 +257,23 @@ func (h *Handler) ReservationReturn(c echo.Context) error {
 	)
 	gg, ctxCancel := errgroup.WithContext(ctx)
 	gg.Go(func() error {
-		lib, code, err = h.librarySvc.GetLibrary(ctxCancel, res.LibraryUid)
-		if err != nil {
-			return echo.NewHTTPError(code, err.Error())
-		}
-		return nil
+		return h.librarySvc.CB().Call(func() error {
+			lib, code, err = h.librarySvc.GetLibrary(ctxCancel, res.LibraryUid)
+			if err != nil {
+				return echo.NewHTTPError(code, err.Error())
+			}
+			return nil
+		})
 	})
 
 	gg.Go(func() error {
-		book, code, err = h.librarySvc.GetBook(ctxCancel, res.LibraryUid, res.BookUid)
-		if err != nil {
-			return echo.NewHTTPError(code, err.Error())
-		}
-		return nil
+		return h.librarySvc.CB().Call(func() error {
+			book, code, err = h.librarySvc.GetBook(ctxCancel, res.LibraryUid, res.BookUid)
+			if err != nil {
+				return echo.NewHTTPError(code, err.Error())
+			}
+			return nil
+		})
 	})
 	if err := gg.Wait(); err != nil {
 		return err
@@ -259,33 +287,72 @@ func (h *Handler) ReservationReturn(c echo.Context) error {
 	if book.Condition != req.Condition {
 		stars = -10
 	}
-	if code, err := h.ratingSvc.Rating(ctx, username, stars); err != nil {
-		return echo.NewHTTPError(code, err.Error())
+
+	if err := h.ratingSvc.CB().Call(func() error {
+		if code, err := h.ratingSvc.Rating(ctx, username, stars); err != nil {
+			return echo.NewHTTPError(code, err.Error())
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	return c.NoContent(http.StatusNoContent)
 }
 
 func (h *Handler) GetBooks(c echo.Context) error {
-	data, code, err := h.librarySvc.GetBooks(c)
-	if err != nil {
-		return echo.NewHTTPError(code, err.Error())
+	var (
+		code int
+		data []byte
+	)
+	if err := h.librarySvc.CB().Call(func() error {
+		var err error
+		data, code, err = h.librarySvc.GetBooks(c)
+		if err != nil {
+			return echo.NewHTTPError(code, err.Error())
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
+
+	return c.JSONBlob(code, data)
+}
+
+func (h *Handler) GetLibraries(c echo.Context) error {
+	var (
+		code int
+		data []byte
+	)
+	if err := h.librarySvc.CB().Call(func() error {
+		var err error
+		data, code, err = h.librarySvc.GetLibraries(c)
+		if err != nil {
+			return echo.NewHTTPError(code, err.Error())
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
 	return c.JSONBlob(code, data)
 }
 
 func (h *Handler) GetRating(c echo.Context) error {
-	resp, code, err := h.ratingSvc.GetRating(c.Request().Context(), c.Request().Header.Get(XUserName))
-	if err != nil {
-		return echo.NewHTTPError(code, err.Error())
+	var (
+		code int
+		resp model.Rating
+	)
+	if err := h.ratingSvc.CB().Call(func() error {
+		var err error
+		resp, code, err = h.ratingSvc.GetRating(c.Request().Context(), c.Request().Header.Get(XUserName))
+		if err != nil {
+			return echo.NewHTTPError(code, err.Error())
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
-	return c.JSON(code, resp)
-}
 
-func (h *Handler) GetLibraries(c echo.Context) error {
-	data, code, err := h.librarySvc.GetLibraries(c)
-	if err != nil {
-		return echo.NewHTTPError(code, err.Error())
-	}
-	return c.JSONBlob(code, data)
+	return c.JSON(code, resp)
 }

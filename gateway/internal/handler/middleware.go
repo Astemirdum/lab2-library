@@ -9,6 +9,15 @@ import (
 	"golang.org/x/time/rate"
 )
 
+//func circuitBreakerMW(next echo.HandlerFunc) echo.HandlerFunc {
+//	return func(c echo.Context) error {
+//		cb := circuit_breaker.New(10, time.Second, 0.30, 3)
+//		return cb.Call(func() error {
+//			return next(c)
+//		})
+//	}
+//}
+
 func newRateLimiterMW(rps rate.Limit) echo.MiddlewareFunc {
 	return middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rps))
 }

@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Astemirdum/library-service/pkg/circuit_breaker"
+
 	"github.com/Astemirdum/library-service/gateway/internal/errs"
 
 	"github.com/Astemirdum/library-service/gateway/config"
@@ -22,6 +24,7 @@ type Service struct {
 	log    *zap.Logger
 	client *http.Client
 	cfg    config.ReservationHTTPServer
+	cb     circuit_breaker.CircuitBreaker
 }
 
 func NewService(log *zap.Logger, cfg config.Config) *Service { //nolint:gocritic
@@ -29,12 +32,17 @@ func NewService(log *zap.Logger, cfg config.Config) *Service { //nolint:gocritic
 		log:    log,
 		client: &http.Client{Timeout: time.Minute},
 		cfg:    cfg.ReservationHTTPServer,
+		cb:     circuit_breaker.New(10, time.Second, 0.30, 3),
 	}
 }
 
 const (
 	XUserName = "X-User-Name"
 )
+
+func (s *Service) CB() circuit_breaker.CircuitBreaker {
+	return s.cb
+}
 
 func (s *Service) GetReservation(ctx context.Context, username string) ([]model.GetReservation, int, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://%s/api/v1/reservations", net.JoinHostPort(s.cfg.Host, s.cfg.Port)), http.NoBody)

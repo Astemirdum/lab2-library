@@ -41,7 +41,7 @@ type CircuitBreaker interface {
 	Reset()
 }
 
-func NewCircuitBreaker(recordLength int, timeout time.Duration, percentile float64, recoveryRequests int) CircuitBreaker {
+func New(recordLength int, timeout time.Duration, percentile float64, recoveryRequests int) CircuitBreaker {
 	return &circuitBreaker{
 		state:            Closed,
 		recordLength:     recordLength,

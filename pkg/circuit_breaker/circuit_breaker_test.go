@@ -44,7 +44,7 @@ func Test_circuitBreaker_Call(t *testing.T) {
 				recordLength:     10,
 				timeout:          2 * time.Second,
 				percentile:       0.30,
-				recoveryRequests: 100,
+				recoveryRequests: 3,
 			},
 			args: args{
 				successfulService: successfulService,
@@ -55,7 +55,7 @@ func Test_circuitBreaker_Call(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cb := circuit_breaker.NewCircuitBreaker(tt.fields.recordLength, tt.fields.timeout, tt.fields.percentile, tt.fields.recoveryRequests)
+			cb := circuit_breaker.New(tt.fields.recordLength, tt.fields.timeout, tt.fields.percentile, tt.fields.recoveryRequests)
 			for i := 0; i < 80; i++ {
 				if err := cb.Call(tt.args.successfulService); err != nil {
 					fmt.Printf("Service call failed: %s\n", err.Error())

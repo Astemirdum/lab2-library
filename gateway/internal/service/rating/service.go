@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"time"
+
+	"github.com/Astemirdum/library-service/pkg/circuit_breaker"
 
 	"github.com/labstack/echo/v4"
 
@@ -22,6 +25,7 @@ type Service struct {
 	log    *zap.Logger
 	client *http.Client
 	cfg    config.RatingHTTPServer
+	cb     circuit_breaker.CircuitBreaker
 }
 
 func NewService(log *zap.Logger, cfg config.Config) *Service {
@@ -29,7 +33,12 @@ func NewService(log *zap.Logger, cfg config.Config) *Service {
 		log:    log,
 		client: &http.Client{},
 		cfg:    cfg.RatingHTTPServer,
+		cb:     circuit_breaker.New(10, time.Second, 0.30, 3),
 	}
+}
+
+func (s *Service) CB() circuit_breaker.CircuitBreaker {
+	return s.cb
 }
 
 func (s *Service) GetRating(ctx context.Context, userName string) (model.Rating, int, error) {

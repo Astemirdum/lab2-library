@@ -3,6 +3,8 @@ package handler
 import (
 	"context"
 
+	"github.com/Astemirdum/library-service/pkg/circuit_breaker"
+
 	"github.com/Astemirdum/library-service/gateway/internal/model"
 	"github.com/labstack/echo/v4"
 
@@ -25,15 +27,18 @@ type LibraryService interface {
 	GetBooks(c echo.Context) ([]byte, int, error)
 	GetBook(ctx context.Context, libUid, bookUid string) (model.GetBook, int, error)
 	AvailableCount(ctx context.Context, libraryID, bookID int, isReturn bool) (status int, err error)
+	CB() circuit_breaker.CircuitBreaker
 }
 
 type RatingService interface {
 	GetRating(ctx context.Context, userName string) (model.Rating, int, error)
 	Rating(ctx context.Context, userName string, stars int) (int, error)
+	CB() circuit_breaker.CircuitBreaker
 }
 
 type ReservationService interface {
 	GetReservation(ctx context.Context, username string) ([]model.GetReservation, int, error)
 	CreateReservation(ctx context.Context, request model.CreateReservationRequest) (model.Reservation, int, error)
 	ReservationReturn(ctx context.Context, req model.ReservationReturnRequest, username, reservationUid string) (model.ReservationReturnResponse, int, error)
+	CB() circuit_breaker.CircuitBreaker
 }

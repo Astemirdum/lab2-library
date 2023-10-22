@@ -52,7 +52,7 @@ func (s *Service) GetBook(ctx context.Context, libUid, bookUid string) (model.Ge
 	}
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return model.GetBook{}, http.StatusBadRequest, err
+		return model.GetBook{}, http.StatusServiceUnavailable, err
 	}
 	defer resp.Body.Close()
 	var book model.GetBook
@@ -81,7 +81,7 @@ func (s *Service) AvailableCount(ctx context.Context, inp model.AvailableCountRe
 	req.Header.Set("Content-Type", echo.MIMEApplicationJSONCharsetUTF8)
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return http.StatusBadRequest, err
+		return http.StatusServiceUnavailable, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
@@ -101,7 +101,7 @@ func (s *Service) GetLibrary(ctx context.Context, libUid string) (model.GetLibra
 	}
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return model.GetLibrary{}, http.StatusBadRequest, err
+		return model.GetLibrary{}, http.StatusServiceUnavailable, err
 	}
 	defer resp.Body.Close()
 	var lib model.GetLibrary
@@ -133,7 +133,7 @@ func (s *Service) proxy(c echo.Context) (data []byte, statusCode int, err error)
 	req.Header = c.Request().Header.Clone()
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return nil, http.StatusBadRequest, err
+		return nil, http.StatusServiceUnavailable, err
 	}
 	defer resp.Body.Close()
 

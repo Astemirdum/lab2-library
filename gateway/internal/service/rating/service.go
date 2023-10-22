@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/Astemirdum/library-service/pkg/circuit_breaker"
 
 	"github.com/labstack/echo/v4"
@@ -49,7 +51,7 @@ func (s *Service) GetRating(ctx context.Context, userName string) (model.Rating,
 	req.Header.Set("X-User-Name", userName)
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return model.Rating{}, http.StatusBadRequest, err
+		return model.Rating{}, http.StatusServiceUnavailable, errors.New("Bonus Service unavailable")
 	}
 	defer resp.Body.Close()
 
@@ -83,7 +85,7 @@ func (s *Service) Rating(ctx context.Context, userName string, stars int) (int, 
 	req.Header.Set("Content-Type", echo.MIMEApplicationJSON)
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return http.StatusBadRequest, err
+		return http.StatusServiceUnavailable, err
 	}
 	defer resp.Body.Close()
 

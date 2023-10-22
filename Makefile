@@ -3,7 +3,7 @@ ENV=.env
 
 .PHONY: run
 run:
-	docker compose -f ./docker-compose.yaml --env-file $(ENV) up -d --build #--remove-orphans
+	docker compose -f ./docker-compose.yaml --env-file $(ENV) up -d #--build #--remove-orphans
 
 .PHONY: run-svc
 run-svc: #  make run-svc svc=redis

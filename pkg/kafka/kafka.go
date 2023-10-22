@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -38,7 +39,7 @@ func NewConsumer(cfg Config, consumerGroup string) (sarama.ConsumerGroup, error)
 
 	defaultCfg.Consumer.Group.Rebalance.GroupStrategies = []sarama.BalanceStrategy{sarama.NewBalanceStrategyRoundRobin()}
 	// defaultCfg.Consumer.Offsets.Initial = sarama.OffsetOldest
-
+	fmt.Println("AAAAAA", cfg.Addrs)
 	return sarama.NewConsumerGroup(strings.Split(cfg.Addrs, ","), consumerGroup, defaultCfg)
 
 }

@@ -53,7 +53,7 @@ func (s *Service) GetReservation(ctx context.Context, username string) ([]model.
 	req.Header.Set("Content-Type", echo.MIMEApplicationJSONCharsetUTF8)
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return nil, http.StatusBadRequest, err
+		return nil, http.StatusServiceUnavailable, err
 	}
 	defer resp.Body.Close()
 
@@ -81,7 +81,7 @@ func (s *Service) CreateReservation(ctx context.Context, request model.CreateRes
 	req.Header.Set("Content-Type", echo.MIMEApplicationJSONCharsetUTF8)
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return model.Reservation{}, http.StatusBadRequest, err
+		return model.Reservation{}, http.StatusServiceUnavailable, err
 	}
 	defer resp.Body.Close()
 
@@ -110,7 +110,7 @@ func (s *Service) RollbackReservation(ctx context.Context, uuid string) (int, er
 	req.Header.Set("Content-Type", echo.MIMEApplicationJSONCharsetUTF8)
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return http.StatusBadRequest, err
+		return http.StatusServiceUnavailable, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
@@ -132,7 +132,7 @@ func (s *Service) ReservationReturn(ctx context.Context, req model.ReservationRe
 	r.Header.Set(XUserName, username)
 	resp, err := s.client.Do(r)
 	if err != nil {
-		return model.ReservationReturnResponse{}, http.StatusBadRequest, err
+		return model.ReservationReturnResponse{}, http.StatusServiceUnavailable, err
 	}
 	defer resp.Body.Close()
 

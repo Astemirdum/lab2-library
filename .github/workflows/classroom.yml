@@ -77,7 +77,7 @@ jobs:
       - name: Run containers
         timeout-minutes: 10
         run: |
-          docker compose --env-file .env up -d --build
+          docker compose --env-file .env up -d 
           chmod +x scripts/wait-script.sh
           bash scripts/wait-script.sh
         env:
@@ -90,7 +90,7 @@ jobs:
           ./scripts/test-script.sh
         env:
           VARIANT: v4
-          SERVICE_NAME: library-service
+          SERVICE_NAME: rating
           PORT_NUMBER: 8080
 
       - uses: education/autograding@v1

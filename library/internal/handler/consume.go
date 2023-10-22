@@ -18,7 +18,7 @@ type Consumer struct {
 	ready                 chan bool
 }
 
-func newConsumer(availableCount availableCount, log *zap.Logger) *Consumer {
+func NewConsumer(availableCount availableCount, log *zap.Logger) *Consumer {
 	return &Consumer{
 		availableCountHandler: availableCount,
 		log:                   log.Named("consumer"),

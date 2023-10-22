@@ -17,7 +17,7 @@ type Consumer struct {
 	ready         chan bool
 }
 
-func newConsumer(rating rating, log *zap.Logger) *Consumer {
+func NewConsumer(rating rating, log *zap.Logger) *Consumer {
 	return &Consumer{
 		ratingHandler: rating,
 		log:           log.Named("consumer"),

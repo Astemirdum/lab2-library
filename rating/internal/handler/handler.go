@@ -4,9 +4,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Astemirdum/library-service/pkg/kafka"
-	"github.com/IBM/sarama"
-
 	"github.com/Astemirdum/library-service/rating/internal/errs"
 	"github.com/pkg/errors"
 
@@ -22,7 +19,7 @@ type Handler struct {
 	log       *zap.Logger
 }
 
-func New(ratingSvc RatingService, log *zap.Logger, consumer sarama.ConsumerGroup) *Handler {
+func New(ratingSvc RatingService, log *zap.Logger) *Handler {
 	h := &Handler{
 		ratingSvc: ratingSvc,
 		log:       log,
@@ -30,7 +27,6 @@ func New(ratingSvc RatingService, log *zap.Logger, consumer sarama.ConsumerGroup
 			Timeout: time.Minute,
 		},
 	}
-	go kafka.Consume(consumer, newConsumer(ratingSvc.Rating, log), kafka.RatingTopic)
 	return h
 }
 

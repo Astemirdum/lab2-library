@@ -32,14 +32,15 @@ func Run(cfg *config.Config) {
 	if err != nil {
 		log.Fatal("repo", zap.Error(err))
 	}
-	userService := service.NewService(repo, log)
+	svc := service.NewService(repo, log)
 
 	consumer, err := kafka.NewConsumer(cfg.Kafka, kafka.LibraryConsumerGroup)
 	if err != nil {
 		log.Fatal("kafka.NewConsumer", zap.Error(err))
 	}
 
-	h := handler.New(userService, log, consumer)
+	h := handler.New(svc, log)
+	go kafka.Consume(consumer, handler.NewConsumer(svc.AvailableCount, log), kafka.LibraryTopic)
 
 	srv := server.NewServer(cfg.Server, h.NewRouter())
 	log.Info("http server start ON: ",

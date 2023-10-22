@@ -30,9 +30,9 @@ func Run(cfg *config.Config) {
 	if err != nil {
 		log.Fatal("repo users", zap.Error(err))
 	}
-	userService := service.NewService(repo, log)
+	svc := service.NewService(repo, log)
 
-	h := handler.New(userService, log)
+	h := handler.New(svc, log)
 
 	srv := server.NewServer(cfg.Server, h.NewRouter())
 	log.Info("http server start ON: ",

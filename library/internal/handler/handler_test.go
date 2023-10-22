@@ -118,7 +118,7 @@ func TestHandler_GetBooks(t *testing.T) {
 			defer c.Finish()
 			svc := service_mocks.NewMockLibraryService(c)
 			log := zap.NewExample().Named("test")
-			h := handler.New(svc, log, nil)
+			h := handler.New(svc, log)
 
 			e := echo.New()
 			e.Validator = validate.NewCustomValidator()

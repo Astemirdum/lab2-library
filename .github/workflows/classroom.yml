@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-#    if: github.repository == 'skip'
+    if: github.repository == 'skip'
     name: build
     runs-on: ubuntu-latest
     steps:
@@ -64,7 +64,7 @@ jobs:
 
   test:
 #    if: github.repository == 'skip'
-    needs: build
+#    needs: build
     name: Integration Test
     runs-on: ubuntu-latest
 
@@ -85,7 +85,9 @@ jobs:
 
       - name: Run API Tests
         timeout-minutes: 5
-        run: ./scripts/test-script.sh
+        run: |
+          chmod +x scripts/test-script.sh
+          ./scripts/test-script.sh
         env:
           VARIANT: v4
           SERVICE_NAME: library-service

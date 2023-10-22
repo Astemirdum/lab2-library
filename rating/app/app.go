@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Astemirdum/library-service/pkg/kafka"
+
 	"github.com/Astemirdum/library-service/pkg/logger"
 	"github.com/Astemirdum/library-service/pkg/postgres"
 	"github.com/Astemirdum/library-service/rating/config"
@@ -31,7 +33,11 @@ func Run(cfg *config.Config) {
 	}
 	userService := service.NewService(repo, log)
 
-	h := handler.New(userService, log)
+	consumer, err := kafka.NewConsumer(cfg.Kafka, kafka.RatingConsumerGroup)
+	if err != nil {
+		log.Fatal("kafka.NewConsumer", zap.Error(err))
+	}
+	h := handler.New(userService, log, consumer)
 
 	srv := server.NewServer(cfg.Server, h.NewRouter())
 	log.Info("http server start ON: ",

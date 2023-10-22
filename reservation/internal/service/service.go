@@ -41,3 +41,7 @@ func (s *Service) GetReservations(ctx context.Context, username string) ([]model
 func (s *Service) ReservationsReturn(ctx context.Context, username, reservationUid string) (model.ReservationReturnResponse, error) {
 	return s.repo.ReservationsReturn(ctx, username, reservationUid)
 }
+
+func (s *Service) RollbackReservation(ctx context.Context, uid string) error {
+	return s.repo.DeleteReservation(ctx, uid)
+}

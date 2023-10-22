@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Astemirdum/library-service/pkg/kafka"
+
 	"github.com/Astemirdum/library-service/pkg/logger"
 
 	"github.com/kelseyhightower/envconfig"
@@ -34,6 +36,7 @@ type ReservationHTTPServer struct {
 
 type Config struct {
 	Server                HTTPServer `yaml:"server"`
+	Kafka                 kafka.Config
 	ReservationHTTPServer ReservationHTTPServer
 	LibraryHTTPServer     LibraryHTTPServer
 	RatingHTTPServer      RatingHTTPServer

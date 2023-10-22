@@ -13,6 +13,7 @@ type ReservationService interface {
 	CreateReservation(ctx context.Context, req model.CreateReservationRequest) (model.Reservation, error)
 	GetReservations(ctx context.Context, username string) ([]model.Reservation, error)
 	ReservationsReturn(ctx context.Context, username, reservationUid string) (model.ReservationReturnResponse, error)
+	RollbackReservation(ctx context.Context, uid string) error
 }
 
 var _ ReservationService = (*service.Service)(nil)

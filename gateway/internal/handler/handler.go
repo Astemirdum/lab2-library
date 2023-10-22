@@ -3,6 +3,9 @@ package handler
 import (
 	"net/http"
 
+	"github.com/Astemirdum/library-service/pkg/kafka"
+	"github.com/IBM/sarama"
+
 	"github.com/Astemirdum/library-service/gateway/config"
 	"github.com/Astemirdum/library-service/gateway/internal/errs"
 	"github.com/Astemirdum/library-service/gateway/internal/model"
@@ -22,17 +25,17 @@ type Handler struct {
 	librarySvc     LibraryService
 	ratingSvc      RatingService
 	reservationSvc ReservationService
-	// client         *http.Client
-	log *zap.Logger
+	enqueuer       Enqueuer
+	log            *zap.Logger
 }
 
-func New(log *zap.Logger, cfg config.Config) *Handler {
+func New(log *zap.Logger, cfg config.Config, producer sarama.SyncProducer) *Handler {
 	h := &Handler{
 		librarySvc:     library.NewService(log, cfg),
 		ratingSvc:      rating.NewService(log, cfg),
 		reservationSvc: reservation.NewService(log, cfg),
-		// client:         &http.Client{Timeout: time.Minute},
-		log: log,
+		enqueuer:       NewEnqueuer(producer),
+		log:            log,
 	}
 	return h
 }
@@ -218,7 +221,14 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 		return echo.NewHTTPError(code, err.Error())
 	}
 
-	if code, err := h.librarySvc.AvailableCount(ctx, lib.ID, book.ID, false); err != nil {
+	if code, err := h.librarySvc.AvailableCount(ctx, model.AvailableCountRequest{
+		LibraryID: lib.ID,
+		BookID:    book.ID,
+		IsReturn:  false,
+	}); err != nil {
+		if _, err := h.reservationSvc.RollbackReservation(ctx, rsv.ReservationUid); err != nil {
+			h.log.Warn("RollbackReservation")
+		}
 		return echo.NewHTTPError(code, err.Error())
 	}
 
@@ -279,8 +289,19 @@ func (h *Handler) ReservationReturn(c echo.Context) error {
 		return err
 	}
 
-	if code, err := h.librarySvc.AvailableCount(ctx, lib.ID, book.ID, true); err != nil {
-		return echo.NewHTTPError(code, err.Error())
+	availableCountReq := model.AvailableCountRequest{
+		LibraryID: lib.ID,
+		BookID:    book.ID,
+		IsReturn:  true,
+	}
+	if code, err := h.librarySvc.AvailableCount(ctx, availableCountReq); err != nil {
+		if code == http.StatusInternalServerError {
+			if err := h.enqueuer.Enqueue(kafka.LibraryTopic, availableCountReq); err != nil {
+				h.log.Warn("AvailableCount h.enqueuer.Enqueue()", zap.Error(err))
+			}
+		} else {
+			return echo.NewHTTPError(code, err.Error())
+		}
 	}
 
 	stars := 1
@@ -288,13 +309,18 @@ func (h *Handler) ReservationReturn(c echo.Context) error {
 		stars = -10
 	}
 
-	if err := h.ratingSvc.CB().Call(func() error {
-		if code, err := h.ratingSvc.Rating(ctx, username, stars); err != nil {
+	if code, err := h.ratingSvc.Rating(ctx, username, stars); err != nil {
+		if code == http.StatusInternalServerError {
+			ratingMsg := model.RatingMsg{
+				Name:  username,
+				Stars: stars,
+			}
+			if err := h.enqueuer.Enqueue(kafka.RatingTopic, ratingMsg); err != nil {
+				h.log.Warn("Rating h.enqueuer.Enqueue()", zap.Error(err))
+			}
+		} else {
 			return echo.NewHTTPError(code, err.Error())
 		}
-		return nil
-	}); err != nil {
-		return err
 	}
 
 	return c.NoContent(http.StatusNoContent)

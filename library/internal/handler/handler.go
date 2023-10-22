@@ -5,6 +5,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Astemirdum/library-service/pkg/kafka"
+	"github.com/IBM/sarama"
+
 	"github.com/Astemirdum/library-service/library/internal/errs"
 	"github.com/Astemirdum/library-service/pkg/validate"
 	"github.com/labstack/echo/v4"
@@ -19,7 +22,7 @@ type Handler struct {
 	log        *zap.Logger
 }
 
-func New(librarySrv LibraryService, log *zap.Logger) *Handler {
+func New(librarySrv LibraryService, log *zap.Logger, consumer sarama.ConsumerGroup) *Handler {
 	h := &Handler{
 		librarySvc: librarySrv,
 		log:        log,
@@ -27,6 +30,7 @@ func New(librarySrv LibraryService, log *zap.Logger) *Handler {
 			Timeout: time.Minute,
 		},
 	}
+	go kafka.Consume(consumer, newConsumer(librarySrv.AvailableCount, log), kafka.LibraryTopic)
 	return h
 }
 

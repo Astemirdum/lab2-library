@@ -65,18 +65,9 @@ func (s *Service) GetBook(ctx context.Context, libUid, bookUid string) (model.Ge
 	return book, resp.StatusCode, err
 }
 
-func (s *Service) AvailableCount(ctx context.Context, libraryID, bookID int, isReturn bool) (status int, err error) {
+func (s *Service) AvailableCount(ctx context.Context, inp model.AvailableCountRequest) (status int, err error) {
 	b := bytes.NewBuffer(nil)
-	type Req struct {
-		LibraryID int  `json:"libraryID"`
-		BookID    int  `json:"bookID"`
-		IsReturn  bool `json:"isReturn"`
-	}
-	if err := json.NewEncoder(b).Encode(Req{
-		LibraryID: libraryID,
-		BookID:    bookID,
-		IsReturn:  isReturn,
-	}); err != nil {
+	if err := json.NewEncoder(b).Encode(inp); err != nil {
 		return http.StatusBadRequest, err
 	}
 	req, err := http.NewRequestWithContext(

@@ -24,6 +24,7 @@ import (
 type Repository interface {
 	CreateReservation(ctx context.Context, req model.CreateReservationRequest) (model.Reservation, error)
 	GetRented(ctx context.Context, username string) (int, error)
+	DeleteReservation(ctx context.Context, uid string) error
 	GetReservations(ctx context.Context, username string) ([]model.Reservation, error)
 	ReservationsReturn(ctx context.Context, username, reservationUid string) (model.ReservationReturnResponse, error)
 }
@@ -97,47 +98,46 @@ func (r *repository) GetRented(ctx context.Context, username string) (int, error
 	return count, nil
 }
 
+func (r *repository) DeleteReservation(ctx context.Context, uid string) error {
+	_, err := r.db.Exec(ctx, fmt.Sprintf("delete from %s where reservation_uid = $1", reservationTableName), uid)
+	return err
+}
+
 func (r *repository) CreateReservation(ctx context.Context, req model.CreateReservationRequest) (model.Reservation, error) {
 	q := fmt.Sprintf(`insert into %s (reservation_uid, username, book_uid, library_uid, status, start_date, till_date) 
 	values (@reservation_uid, @username, @book_uid, @library_uid, @status, now(), @till_date) 
 	returning *`, reservationTableName)
 	batch := &pgx.Batch{}
-	ids := []uuid.UUID{uuid.New()}
-	for _, id := range ids {
-		args := pgx.NamedArgs{
-			"reservation_uid": id,
-			"username":        req.UserName,
-			"book_uid":        req.BookUid,
-			"library_uid":     req.LibraryUid,
-			"status":          model.StatusRented,
-			"till_date":       req.TillDate.Format(time.DateOnly),
-		}
-		batch.Queue(q, args)
+	id := uuid.New()
+	args := pgx.NamedArgs{
+		"reservation_uid": id,
+		"username":        req.UserName,
+		"book_uid":        req.BookUid,
+		"library_uid":     req.LibraryUid,
+		"status":          model.StatusRented,
+		"till_date":       req.TillDate.Format(time.DateOnly),
 	}
+	batch.Queue(q, args)
 
 	result := r.db.SendBatch(ctx, batch)
 	defer result.Close()
 
-	ress := make([]model.Reservation, 0, len(ids))
-	for _, uid := range ids {
-		rows, err := result.Query()
-		var pgErr *pgconn.PgError
-		if err != nil {
-			if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-				r.log.Warn("reservation_uid already exists", zap.Any("reservation_uid", uid))
-			} else {
-				return model.Reservation{}, fmt.Errorf("unable to insert row: %w", err)
-			}
+	rows, err := result.Query()
+	var pgErr *pgconn.PgError
+	if err != nil {
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+			r.log.Warn("reservation_uid already exists", zap.Any("reservation_uid", id))
+		} else {
+			return model.Reservation{}, fmt.Errorf("unable to insert row: %w", err)
 		}
-		res, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[model.Reservation])
-		if err != nil {
-			return model.Reservation{}, fmt.Errorf("pgx.CollectRows: %w", err)
-		}
-		ress = append(ress, res)
-		rows.Close()
+	}
+	defer rows.Close()
+	res, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[model.Reservation])
+	if err != nil {
+		return model.Reservation{}, fmt.Errorf("pgx.CollectRows: %w", err)
 	}
 
-	return ress[0], result.Close()
+	return res, nil
 }
 
 // CreateReservationCopy  insert bacth without check.

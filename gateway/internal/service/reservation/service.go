@@ -95,6 +95,30 @@ func (s *Service) CreateReservation(ctx context.Context, request model.CreateRes
 	return rsv, resp.StatusCode, nil
 }
 
+func (s *Service) RollbackReservation(ctx context.Context, uuid string) (int, error) {
+	b := bytes.NewBuffer(nil)
+	type request struct {
+		Uuid string `json:"uuid"`
+	}
+	if err := json.NewEncoder(b).Encode(request{Uuid: uuid}); err != nil {
+		return http.StatusBadRequest, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://%s/api/v1/reservations/rollback", net.JoinHostPort(s.cfg.Host, s.cfg.Port)), b)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+	req.Header.Set("Content-Type", echo.MIMEApplicationJSONCharsetUTF8)
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return resp.StatusCode, errs.ErrDefault
+	}
+	return resp.StatusCode, nil
+}
+
 func (s *Service) ReservationReturn(ctx context.Context, req model.ReservationReturnRequest, username, reservationUid string) (model.ReservationReturnResponse, int, error) {
 	b := bytes.NewBuffer(nil)
 	if err := json.NewEncoder(b).Encode(req); err != nil {

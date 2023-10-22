@@ -97,6 +97,11 @@ type Rating struct {
 	Stars int `json:"stars"`
 }
 
+type RatingMsg struct {
+	Name  string `json:"name"`
+	Stars int    `json:"stars"`
+}
+
 type ReservationReturnRequest struct {
 	Condition string `json:"condition" validate:"required,oneof=EXCELLENT GOOD BAD"`
 	Date      Date   `json:"date" validate:"required"`
@@ -105,4 +110,10 @@ type ReservationReturnRequest struct {
 type ReservationReturnResponse struct {
 	BookUid    string `json:"bookUid" db:"book_uid"`
 	LibraryUid string `json:"libraryUid" db:"library_uid"`
+}
+
+type AvailableCountRequest struct {
+	LibraryID int  `json:"libraryID"`
+	BookID    int  `json:"bookID"`
+	IsReturn  bool `json:"isReturn"`
 }

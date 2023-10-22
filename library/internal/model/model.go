@@ -41,3 +41,9 @@ type Library struct {
 	Address    string `json:"address" db:"address"`
 	City       string `json:"city" db:"city"`
 }
+
+type AvailableCountRequest struct {
+	LibraryID int  `json:"libraryID"`
+	BookID    int  `json:"bookID"`
+	IsReturn  bool `json:"isReturn"`
+}

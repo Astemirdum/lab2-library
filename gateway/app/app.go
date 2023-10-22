@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Astemirdum/library-service/pkg/kafka"
+
 	"github.com/Astemirdum/library-service/gateway/config"
 	"github.com/Astemirdum/library-service/gateway/internal/handler"
 	"github.com/Astemirdum/library-service/gateway/internal/server"
@@ -17,7 +19,11 @@ import (
 
 func Run(cfg config.Config) {
 	log := logger.NewLogger(cfg.Log, "gateway")
-	h := handler.New(log, cfg)
+	producer, err := kafka.NewProducer(cfg.Kafka)
+	if err != nil {
+		log.DPanic("kafka", zap.Error(err))
+	}
+	h := handler.New(log, cfg, producer)
 
 	srv := server.NewServer(cfg.Server, h.NewRouter())
 	log.Info("http server start ON: ",
@@ -42,4 +48,5 @@ func Run(cfg config.Config) {
 		log.DPanic("srv.Stop", zap.Error(err))
 	}
 	log.Info("Graceful shutdown finished")
+	_ = producer.Close()
 }

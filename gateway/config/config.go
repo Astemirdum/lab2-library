@@ -35,8 +35,9 @@ type ReservationHTTPServer struct {
 }
 
 type Config struct {
-	Server                HTTPServer `yaml:"server"`
-	Kafka                 kafka.Config
+	Server HTTPServer `yaml:"server"`
+	Kafka  kafka.Config
+	//Database              postgres.DB `yaml:"db"`
 	ReservationHTTPServer ReservationHTTPServer
 	LibraryHTTPServer     LibraryHTTPServer
 	RatingHTTPServer      RatingHTTPServer

@@ -14,6 +14,8 @@ services:
       - LIBRARY_HTTP_HOST=library
       - RESERVATION_HTTP_HOST=reservation
       - RATING_HTTP_HOST=rating
+      - DB_HOST=postgres
+      - DB_NAME=postgres
     ports:
       - "${GATEWAY_HTTP_PORT}:${GATEWAY_HTTP_PORT}"
     networks:

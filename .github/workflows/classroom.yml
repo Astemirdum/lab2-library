@@ -87,7 +87,7 @@ jobs:
         timeout-minutes: 5
         run: |
           chmod +x scripts/test-script.sh
-          sh scripts/test-script.sh
+          bash scripts/test-script.sh
         env:
           VARIANT: v4
           SERVICE_NAME: rating

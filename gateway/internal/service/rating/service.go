@@ -35,7 +35,7 @@ func NewService(log *zap.Logger, cfg config.Config) *Service {
 		log:    log,
 		client: &http.Client{},
 		cfg:    cfg.RatingHTTPServer,
-		cb:     circuit_breaker.New(10, time.Second, 0.30, 3),
+		cb:     circuit_breaker.New(100, time.Second, 0.2, 2),
 	}
 }
 

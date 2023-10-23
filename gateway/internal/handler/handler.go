@@ -295,7 +295,7 @@ func (h *Handler) ReservationReturn(c echo.Context) error {
 		IsReturn:  true,
 	}
 	if code, err := h.librarySvc.AvailableCount(ctx, availableCountReq); err != nil {
-		if code == http.StatusInternalServerError {
+		if code == http.StatusServiceUnavailable {
 			if err := h.enqueuer.Enqueue(kafka.LibraryTopic, availableCountReq); err != nil {
 				h.log.Warn("AvailableCount h.enqueuer.Enqueue()", zap.Error(err))
 			}
@@ -310,7 +310,7 @@ func (h *Handler) ReservationReturn(c echo.Context) error {
 	}
 
 	if code, err := h.ratingSvc.Rating(ctx, username, stars); err != nil {
-		if code == http.StatusInternalServerError {
+		if code == http.StatusServiceUnavailable {
 			ratingMsg := model.RatingMsg{
 				Name:  username,
 				Stars: stars,

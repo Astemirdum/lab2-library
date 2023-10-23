@@ -77,7 +77,7 @@ jobs:
       - name: Run containers
         timeout-minutes: 10
         run: |
-          docker compose --env-file .env up -d 
+          docker compose --env-file .env up -d --build
           chmod +x scripts/wait-script.sh
           bash scripts/wait-script.sh
         env:
@@ -87,7 +87,7 @@ jobs:
         timeout-minutes: 5
         run: |
           chmod +x scripts/test-script.sh
-          bash scripts/test-script.sh
+          sh scripts/test-script.sh
         env:
           VARIANT: v4
           SERVICE_NAME: rating

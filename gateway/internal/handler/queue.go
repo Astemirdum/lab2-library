@@ -1,13 +1,19 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/Astemirdum/library-service/gateway/internal/model"
 
 	"github.com/IBM/sarama"
 )
 
 type Enqueuer interface {
 	Enqueue(topic string, v any) error
+	EnqueueV2(ctx context.Context, fn func(ctx context.Context, userName string, stars int) (int, error), req model.RatingMsg)
 }
 
 func NewEnqueuer(producer sarama.SyncProducer) Enqueuer {
@@ -28,4 +34,17 @@ func (q *enqueuerImpl) Enqueue(topic string, v any) error {
 	msg := &sarama.ProducerMessage{Topic: topic, Value: sarama.StringEncoder(data)}
 	_, _, err = q.producer.SendMessage(msg)
 	return err
+}
+
+func (q *enqueuerImpl) EnqueueV2(_ context.Context, fn func(ctx context.Context, userName string, stars int) (int, error), req model.RatingMsg) {
+	go func() {
+		for i := 0; i < 10; i++ {
+			code, err := fn(context.Background(), req.Name, req.Stars)
+			fmt.Println("EnqueueV2", code, err)
+			if err == nil {
+				return
+			}
+			time.Sleep(time.Second * 10)
+		}
+	}()
 }

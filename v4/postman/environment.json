@@ -1,7 +1,7 @@
 {
   "_": {
     "postman_variable_scope": "environment",
-    "postman_exported_at": "2023-10-23T14:31:25.065Z",
+    "postman_exported_at": "2023-10-23T19:35:58.483Z",
     "postman_exported_using": "Newman/6.0.0"
   },
   "id": "f30432e5-4321-4516-8c53-4e2d4f7abf94",
@@ -29,16 +29,16 @@
     },
     {
       "type": "any",
-      "value": 94,
+      "value": 78,
       "key": "stars"
     },
     {
       "type": "any",
-      "value": "33b8c12e-2690-4d03-8a3e-2662090720e3",
+      "value": "3f9c4b34-f7eb-4c79-aa50-659c987b1150",
       "key": "reservationUid"
     }
   ],
   "_postman_variable_scope": "environment",
-  "_postman_exported_at": "2023-10-23T14:31:57.833Z",
+  "_postman_exported_at": "2023-10-23T19:36:30.250Z",
   "_postman_exported_using": "Newman/6.0.0"
 }

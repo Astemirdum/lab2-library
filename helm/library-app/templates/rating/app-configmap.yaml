@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "rating.fullname" . }}-config
+  labels:
+    {{- include "library-app.labels" . | nindent 4 }}
+  namespace: {{ include "library-app.namespace" . }}
+data:
+  HTTP_HOST:  "{{ .Values.configData.rating.http.host }}"
+  HTTP_PORT: {{ .Values.configData.rating.http.port | quote }}
+  HTTP_READ: {{ .Values.configData.rating.http.read | quote }}
+  DB_HOST: "{{ .Values.configData.db.host }}"
+  DB_PORT: "{{ .Values.configData.db.port  }}"
+  DB_USER: "{{ .Values.configData.db.user }}"
+  DB_NAME: "{{ .Values.configData.rating.dbName }}"

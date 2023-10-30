@@ -25,6 +25,7 @@ const (
 )
 
 func NewProducer(cfg Config) (sarama.SyncProducer, error) {
+	return nil, nil
 	defaultCfg := sarama.NewConfig()
 
 	defaultCfg.Producer.RequiredAcks = sarama.WaitForAll
@@ -38,12 +39,13 @@ func NewConsumer(cfg Config, consumerGroup string) (sarama.ConsumerGroup, error)
 
 	defaultCfg.Consumer.Group.Rebalance.GroupStrategies = []sarama.BalanceStrategy{sarama.NewBalanceStrategyRoundRobin()}
 	// defaultCfg.Consumer.Offsets.Initial = sarama.OffsetOldest
-	//fmt.Println("AAAAAA", cfg.Addrs)
-	return sarama.NewConsumerGroup(strings.Split(cfg.Addrs, ","), consumerGroup, defaultCfg)
+
+	return nil, nil // sarama.NewConsumerGroup(strings.Split(cfg.Addrs, ","), consumerGroup, defaultCfg)
 
 }
 
 func Consume(client sarama.ConsumerGroup, handler sarama.ConsumerGroupHandler, topic string) {
+	return
 	keepRunning := true
 	ctx, cancel := context.WithCancel(context.Background())
 	//consumer := Consumer{

@@ -1,6 +1,41 @@
 SERVICE_NAME=library
 ENV=.env
 
+
+HELM=helm/library-app
+
+.PHONY: helm-run
+helm-run:
+	helm upgrade --install ${MY_RELEASE} ${HELM} -f ${HELM}/values.yaml  --set setter=lol \
+		--namespace ${NAMESPACE} \
+        --create-namespace \
+        --atomic \
+        --timeout 120s \
+        --debug
+
+.PHONY: helm-uninstall
+helm-uninstall:
+	helm uninstall ${MY_RELEASE} --namespace ${NAMESPACE}
+
+
+.PHONY: helm-template
+helm-template:
+	helm template ${MY_RELEASE} ${HELM} --debug
+
+
+.PHONY: helm-upgrade
+helm-upgrade:
+	helm upgrade ${MY_RELEASE} helm/library-app --namespace ${NAMESPACE}
+
+.PHONY: k-clean
+k-clean:
+	kubectl delete sc,pvc,pv,cm,ing,secret,svc,all --all -n ${NAMESPACE}
+
+.PHONY: helm-rollout
+helm-rollout:
+	helm rollback ${MY_RELEASE} --namespace ${NAMESPACE}
+
+
 .PHONY: run
 run:
 	docker compose -f ./docker-compose.yaml --env-file $(ENV) up -d #--build #--remove-orphans

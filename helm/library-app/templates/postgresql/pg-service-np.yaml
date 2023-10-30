@@ -1,0 +1,18 @@
+{{- if .Values.db.service.np.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "db.name" . }}-np
+  labels:
+    {{- include "db.labels" . | nindent 4 }}
+  namespace: {{ include "library-app.namespace" . }}
+spec:
+  type: {{ .Values.db.service.np.type }}
+  ports:
+    - port: {{ .Values.db.service.np.port }}
+      targetPort: {{ .Values.db.portName }}
+      nodePort: {{ .Values.db.service.np.nodePort }}
+      protocol: TCP
+  selector:
+    {{- include "db.selectorLabels" . | nindent 4 }}
+{{- end }}

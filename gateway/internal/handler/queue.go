@@ -27,6 +27,7 @@ type enqueuerImpl struct {
 }
 
 func (q *enqueuerImpl) Enqueue(topic string, v any) error {
+	return nil
 	data, err := json.Marshal(v)
 	if err != nil {
 		return err

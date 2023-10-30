@@ -315,10 +315,10 @@ func (h *Handler) ReservationReturn(c echo.Context) error {
 				Name:  username,
 				Stars: stars,
 			}
-			h.enqueuer.EnqueueV2(ctx, h.ratingSvc.Rating, ratingMsg)
-			//if err := h.enqueuer.Enqueue(kafka.RatingTopic, ratingMsg); err != nil {
-			//	h.log.Warn("Rating h.enqueuer.Enqueue()", zap.Error(err))
-			//}
+			//h.enqueuer.EnqueueV2(ctx, h.ratingSvc.Rating, ratingMsg)
+			if err := h.enqueuer.Enqueue(kafka.RatingTopic, ratingMsg); err != nil {
+				h.log.Warn("Rating h.enqueuer.Enqueue()", zap.Error(err))
+			}
 		} else {
 			return echo.NewHTTPError(code, err.Error())
 		}

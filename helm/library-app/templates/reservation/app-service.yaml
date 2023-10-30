@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "reservation.fullname" . }}-svc
+  labels:
+    {{- include "library-app.labels" . | nindent 4 }}
+  namespace: {{ include "library-app.namespace" . }}
+spec:
+  type: {{ .Values.reservation.service.type }}
+  ports:
+    - port: {{ .Values.reservation.service.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "library-app.selectorLabels" . | nindent 4 }}

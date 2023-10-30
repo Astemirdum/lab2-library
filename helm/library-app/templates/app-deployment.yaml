@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "gateway.fullname" . }}-deployment
+  labels:
+    {{- include "library-app.labels" . | nindent 4 }}
+  namespace: {{ include "library-app.namespace" . }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  {{- if not .Values.app.autoscaling.enabled }}
+  replicas: {{ .Values.gateway.replicaCount | default 2}}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "library-app.selectorLabels" . | nindent 6 }}
+  strategy:
+    {{- include "library-app.strategy" . | nindent 4 }}
+  template:
+    metadata:
+      {{- with .Values.gateway.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "library-app.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.gateway.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{/*      serviceAccountName: {{ include "library-app.serviceAccountName" . }}*/}}
+      securityContext:
+        {{- toYaml .Values.app.podSecurityContext | nindent 8 }}
+      priorityClassName: {{ .Values.gateway.priority.className }}
+      containers:
+        - name: http-{{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.app.securityContext | nindent 12 }}
+          image: "{{ .Values.gateway.image.repository }}:{{ .Values.gateway.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.gateway.image.pullPolicy }}
+          env:
+            - name: LOG_LEVEL
+              value: {{ .Values.configData.gateway.logLevel}}
+            - name: HTTP_READ
+              valueFrom:
+                configMapKeyRef:
+                  name:  {{ include "gateway.fullname" . }}-config
+                  key: HTTP_READ
+            - name: MY_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: APP_NODENAME
+              value: "app@$(MY_POD_IP)"
+          envFrom:
+            - configMapRef:
+                name: {{ include "gateway.fullname" . }}-config
+          ports:
+            - name: http
+              containerPort: {{ .Values.gateway.containerPort }}
+              protocol: TCP
+{{/*            - name: https*/}}
+{{/*              containerPort: {{ .Values.containerPorts.https }}*/}}
+
+          {{- include "gateway.health" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.gateway.resources | nindent 12 }}
+          volumeMounts:
+            - name: host-data
+              mountPath: /files
+            - name: data
+              mountPath: /data
+              subPath: data
+      restartPolicy: {{ .Values.gateway.restartPolicy }}
+      volumes:
+        - name: host-data
+          hostPath:
+            path: /files
+        - name: data
+        {{- if .Values.gateway.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.gateway.persistence.claimName | default "default" }}
+        {{- else }}
+          emptyDir: { }
+        {{ end }}
+
+      {{- with .Values.app.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.app.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.app.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{/*      imagePullSecrets:*/}}
+{{/*        - name: {{ .Values.imagePullSecret }}*/}}

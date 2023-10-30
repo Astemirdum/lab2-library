@@ -10,7 +10,6 @@ spec:
   ports:
     - port: {{ .Values.gateway.service.port }}
       targetPort: http
-{{/*      {{ .Values.app.containerPort }}*/}}
       protocol: TCP
   selector:
     {{- include "library-app.selectorLabels" . | nindent 4 }}

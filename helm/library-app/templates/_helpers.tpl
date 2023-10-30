@@ -128,6 +128,21 @@ app.kubernetes.io/name: {{ include "gateway.fullname" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
+{{- define "library.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "library.fullname" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{- define "rating.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "rating.fullname" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{- define "reservation.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "reservation.fullname" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
 
 {{- define "db.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "db.name" . }}

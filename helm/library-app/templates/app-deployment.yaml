@@ -47,7 +47,7 @@ spec:
             - name: HTTP_READ
               valueFrom:
                 configMapKeyRef:
-                  name:  {{ include "gateway.fullname" . }}-config
+                  name: {{ include "gateway.fullname" . }}-config
                   key: HTTP_READ
             - name: MY_POD_IP
               valueFrom:

@@ -3,7 +3,8 @@ kind: Service
 metadata:
   name: {{ include "rating.fullname" . }}-svc
   labels:
-    {{- include "library-app.labels" . | nindent 4 }}
+    helm.sh/chart: {{ include "library-app.chart" . }}
+    {{ include "rating.selectorLabels" . }}
   namespace: {{ include "library-app.namespace" . }}
 spec:
   type: {{ .Values.rating.service.type }}
@@ -12,4 +13,4 @@ spec:
       targetPort: http
       protocol: TCP
   selector:
-    {{- include "library-app.selectorLabels" . | nindent 4 }}
+    {{- include "rating.selectorLabels" . | nindent 4 }}

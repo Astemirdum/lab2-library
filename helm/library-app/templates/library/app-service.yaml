@@ -4,7 +4,7 @@ metadata:
   name: {{ include "rating.fullname" . }}-svc
   labels:
     helm.sh/chart: {{ include "library-app.chart" . }}
-    {{- include "library.selectorLabels" . }}
+    {{- include "library.selectorLabels" . |  nindent 4}}
   namespace: {{ include "library-app.namespace" . }}
 spec:
   type: {{ .Values.rating.service.type }}

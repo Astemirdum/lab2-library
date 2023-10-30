@@ -10,6 +10,6 @@ data:
   HTTP_PORT: "{{ .Values.configData.library.http.port }}"
   HTTP_READ: "{{ .Values.configData.library.http.read }}"
   DB_HOST: "{{ .Values.configData.db.host }}"
-  DB_PORT: "{{ .Values.configData.db.port | quote }}"
+  DB_PORT: "{{ .Values.configData.db.port }}"
   DB_USER: "{{ .Values.configData.db.user }}"
   DB_NAME: "{{ .Values.configData.library.dbName }}"

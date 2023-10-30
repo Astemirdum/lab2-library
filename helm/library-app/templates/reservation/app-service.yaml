@@ -4,7 +4,7 @@ metadata:
   name: {{ include "reservation.fullname" . }}-svc
   labels:
     helm.sh/chart: {{ include "library-app.chart" . }}
-    {{ include "reservation.selectorLabels" . }}
+    {{- include "reservation.selectorLabels" . | nindent 4}}
   namespace: {{ include "library-app.namespace" . }}
 spec:
   type: {{ .Values.reservation.service.type }}

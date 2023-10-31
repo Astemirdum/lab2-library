@@ -1,12 +1,14 @@
+
 SERVICE_NAME=library
 ENV=.env
 
-
 HELM=helm/library-app
+NAMESPACE=default
+MY_RELEASE=lab4
 
 .PHONY: helm-run
 helm-run:
-	helm upgrade --install ${MY_RELEASE} ${HELM} -f ${HELM}/values.yaml  --set setter=lol \
+	helm upgrade --install ${MY_RELEASE} ${HELM} -f ${HELM}/values.yaml  --set setter=lol --set setter1=lol1 \
 		--namespace ${NAMESPACE} \
         --create-namespace \
         --atomic \

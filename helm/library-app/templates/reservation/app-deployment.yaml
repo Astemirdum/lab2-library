@@ -96,9 +96,6 @@ spec:
           volumeMounts:
             - name: host-data
               mountPath: /files
-            - name: data
-              mountPath: /data
-              subPath: data
 
       restartPolicy: {{ .Values.reservation.restartPolicy }}
       volumes:

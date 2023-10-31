@@ -33,7 +33,7 @@ spec:
       {{- end }}
 {{/*      serviceAccountName: {{ template "db.serviceAccountName" . }}*/}}
 
-{{/*      restartPolicy: Always*/}}
+      restartPolicy: Always
       {{- with .Values.db.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -92,14 +92,13 @@ spec:
               subPath: {{ .Values.db.persistence.subPath }}
               {{- end }}
             - name: postgres-init
-              mountPath: /postgres:/docker-entrypoint-initdb.d/
-              subPath: postgres
+              mountPath: /docker-entrypoint-initdb.d
 
 
       volumes:
         - name: postgres-init
           hostPath:
-            path: /postgres
+            path: postgres
 
   {{- if and .Values.db.persistence.enabled .Values.db.persistence.claimName }}
         - name: {{ include "db.name" . }}-data

@@ -70,9 +70,6 @@ If release name contains chart name it will be used as a full name.
 {{- define "db.name" -}}
 {{- if .Values.db.name }}
 {{- .Values.db.name | trunc 63 | trimSuffix "-" }}
-{{- else }}
-{{- $name := default .Chart.Name .Values.app.name }}
-{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-"  }}
 {{- end }}
 {{- end }}
 

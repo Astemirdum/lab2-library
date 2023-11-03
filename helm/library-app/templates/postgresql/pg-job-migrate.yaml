@@ -1,0 +1,51 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ include "db.name" . }}-initdb-job"
+  namespace: {{ include "library-app.namespace" . }}
+{{/*  annotations:*/}}
+{{/*    "helm.sh/hook": pre-install,pre-upgrade*/}}
+{{/*    "helm.sh/hook-weight": "3"*/}}
+{{/*    "helm.sh/hook-delete-policy": before-hook-creation*/}}
+  labels:
+    app: init-postgresdb
+spec:
+  activeDeadlineSeconds: 100
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: init-postgresdb
+    spec:
+      initContainers:
+      - name: pg-migration-init
+        image: busybox:1.28
+        imagePullPolicy: IfNotPresent
+        command: {{ include "app.pgWait" . }}
+        envFrom:
+          - configMapRef:
+              name: {{ include "db.name" . }}-config
+      containers:
+      - name: initdbmigrate
+        image: "{{ .Values.db.image.repository }}:{{ .Values.db.image.tag }}"
+        imagePullPolicy: {{ .Values.db.image.pullPolicy | quote }}
+        command:
+          [ "/bin/sh", "-c", "PGPASSWORD=postgres psql -h $(DB_HOST) -p $(DB_PORT) -U postgres -a -f /docker-entrypoint-initdb.d/initdb.sql" ]
+        envFrom:
+          - configMapRef:
+              name: {{ include "db.name" . }}-config
+        resources:
+          limits:
+            cpu: 20m
+            memory: 10Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
+        volumeMounts:
+          - name: {{ include "db.name" . }}-initdb
+            mountPath: /docker-entrypoint-initdb.d/
+      restartPolicy: Never
+      volumes:
+        - name: {{ include "db.name" . }}-initdb
+          configMap:
+            name: {{ include "db.name" . }}-initdb-config

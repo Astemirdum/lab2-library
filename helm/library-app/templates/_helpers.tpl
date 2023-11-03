@@ -150,7 +150,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{/*app strategy*/}}
 {{- define "library-app.strategy" -}}
 rollingUpdate:
-  maxSurge: {{ .Values.app.strategy.rollingUpdate.maxSurge}}
+{{/*  maxSurge: {{ .Values.app.strategy.rollingUpdate.maxSurge}}*/}}
   maxUnavailable: {{ .Values.app.strategy.rollingUpdate.maxUnavailable}}
 type: {{ .Values.app.strategy.type}}
 {{- end }}
@@ -160,7 +160,7 @@ type: {{ .Values.app.strategy.type}}
 {{- define "library.health" -}}
 readinessProbe:
   httpGet: &health
-    path: /health
+    path: /manage/health
     port: {{ .Values.configData.library.http.port }}
     scheme: HTTP
   initialDelaySeconds: 20
@@ -186,7 +186,7 @@ startupProbe:
 {{- define "gateway.health" -}}
 readinessProbe:
   httpGet: &health
-    path: /health
+    path: /manage/health
     port: {{ .Values.configData.gateway.http.port }}
     scheme: HTTP
   initialDelaySeconds: 20
@@ -213,7 +213,7 @@ startupProbe:
 {{- define "rating.health" -}}
 readinessProbe:
   httpGet: &health
-    path: /health
+    path: /manage/health
     port: {{ .Values.configData.rating.http.port }}
     scheme: HTTP
   initialDelaySeconds: 20
@@ -239,7 +239,7 @@ startupProbe:
 {{- define "reservation.health" -}}
 readinessProbe:
   httpGet: &health
-    path: /health
+    path: /manage/health
     port: {{ .Values.configData.reservation.http.port }}
     scheme: HTTP
   initialDelaySeconds: 20

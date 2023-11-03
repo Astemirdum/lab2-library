@@ -5,12 +5,34 @@ metadata:
   labels:
     {{- include "db.labels" . | nindent 4 }}
   namespace: {{ include "library-app.namespace" . }}
-{{/*  annotations:*/}}
-{{/*    "helm.sh/hook": pre-install,pre-upgrade*/}}
-{{/*    "helm.sh/hook-weight": "-5"*/}}
-{{/*    "helm.sh/hook-delete-policy": before-hook-creation*/}}
 data:
   POSTGRES_DB: {{ .Values.configData.db.name }}
   POSTGRES_USER: {{ .Values.configData.db.user }}
   PGDATA: {{ .Values.configData.db.data }}
+  DB_HOST: "{{ .Values.configData.db.host }}"
+  DB_PORT: "{{ .Values.configData.db.port  }}"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "db.name" . }}-initdb-config
+  labels:
+    {{- include "db.labels" . | nindent 4 }}
+  namespace: {{ include "library-app.namespace" . }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+data:
+  initdb.sql: |-
+    CREATE ROLE program WITH PASSWORD 'test';
+    ALTER ROLE program WITH LOGIN;
 
+    CREATE DATABASE reservations;
+    GRANT ALL PRIVILEGES ON DATABASE reservations TO program;
+
+    CREATE DATABASE libraries;
+    GRANT ALL PRIVILEGES ON DATABASE libraries TO program;
+
+    CREATE DATABASE ratings;
+    GRANT ALL PRIVILEGES ON DATABASE ratings TO program;

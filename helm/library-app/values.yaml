@@ -12,9 +12,9 @@ configData:
       read: 20s
     logLevel: debug
     services:
-      libraryHost: "library"
-      reservationHost: "reservation"
-      ratingHost: "rating"
+      libraryHost: "library-svc"
+      reservationHost: "reservation-svc"
+      ratingHost: "rating-svc"
 
   library:
     http:
@@ -73,6 +73,8 @@ app:
     targetCPUUtilizationPercentage: 90
     targetMemoryUtilizationPercentage: 90
     packetsPerSecond: ""
+  initdbPvPvc:
+    enabled: false
 
 gateway:
   affinity: { }
@@ -303,9 +305,9 @@ ingress:
   enabled: true
   className: ""
   annotations:
-     kubernetes.io/ingress.class: nginx
-     # kubernetes.io/tls-acme: "true"
-     nginx.ingress.kubernetes.io/use-regex: "true"
+    kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
   hosts:
     - host: minikubeip
       paths:

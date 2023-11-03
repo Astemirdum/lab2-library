@@ -27,7 +27,7 @@ helm-template:
 
 .PHONY: helm-upgrade
 helm-upgrade:
-	helm upgrade ${MY_RELEASE} helm/library-app --namespace ${NAMESPACE}
+	helm upgrade ${MY_RELEASE} ${HELM} --namespace ${NAMESPACE}
 
 .PHONY: k-clean
 k-clean:

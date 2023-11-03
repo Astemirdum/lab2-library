@@ -5,14 +5,12 @@ metadata:
   labels:
     {{- include "library-app.labels" . | nindent 4 }}
   namespace: {{ include "library-app.namespace" . }}
-  annotations:
-    "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "-1"
-    "helm.sh/hook-delete-policy": before-hook-creation
+{{/*  annotations:*/}}
+{{/*    "helm.sh/hook": post-install,post-upgrade*/}}
+{{/*    "helm.sh/hook-weight": "-1"*/}}
+{{/*    "helm.sh/hook-delete-policy": before-hook-creation*/}}
 spec:
-  {{- if not .Values.app.autoscaling.enabled }}
-  replicas: {{ .Values.gateway.replicaCount | default 2}}
-  {{- end }}
+  replicas: {{ .Values.gateway.replicaCount | default 1}}
   selector:
     matchLabels:
       {{- include "library-app.selectorLabels" . | nindent 6 }}
@@ -62,9 +60,6 @@ spec:
             - name: http
               containerPort: {{ .Values.gateway.containerPort }}
               protocol: TCP
-{{/*            - name: https*/}}
-{{/*              containerPort: {{ .Values.containerPorts.https }}*/}}
-
           {{- include "gateway.health" . | nindent 10 }}
           resources:
             {{- toYaml .Values.gateway.resources | nindent 12 }}

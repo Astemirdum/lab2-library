@@ -7,8 +7,8 @@ services:
     image: ${GATEWAY_IMAGE_NAME}:${GATEWAY_IMAGE_TAG}
     restart: unless-stopped
     container_name: gateway
-    depends_on:
-      - redpanda
+#    depends_on:
+#      - redpanda
     environment:
       - KAFKA_ADDRS=redpanda:9092
       - LIBRARY_HTTP_HOST=library
@@ -34,7 +34,7 @@ services:
       - "${LIBRARY_HTTP_PORT}:${LIBRARY_HTTP_PORT}"
     depends_on:
       - postgres
-      - redpanda
+#      - redpanda
       - gateway
     networks:
       - library
@@ -72,7 +72,7 @@ services:
       - "${RATING_HTTP_PORT}:${RATING_HTTP_PORT}"
     depends_on:
       - postgres
-      - redpanda
+#      - redpanda
       - gateway
     networks:
       - library

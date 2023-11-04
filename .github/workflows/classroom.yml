@@ -152,8 +152,6 @@ jobs:
     needs: build
     name: Publish to Docker Hub
     runs-on: ubuntu-latest
-    env:
-      COMMIT_HASH: ${{ github.sha }}
     steps:
       - name: Code
         uses: actions/checkout@v3

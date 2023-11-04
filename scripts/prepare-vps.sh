@@ -20,26 +20,25 @@ curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scrip
 chmod 700 get_helm.sh
 ./get_helm.sh
 
-#minikube
-sudo apt install curl wget apt-transport-https -y
-
-curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-sudo install minikube-linux-amd64 /usr/local/bin/minikube
-
 #kubectl
 curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 chmod +x ./kubectl
 sudo mv kubectl /usr/local/bin/
 
-# create
-adduser developer
-adduser --disabled-password --gecos "" username
-#useradd -p "$(openssl passwd -6 'lolkek')" developer
+# add user
+adduser --disabled-password --gecos "" developer
+usermod -aG docker developer && newgrp docker
 
-# password@7
-usermod -aG sudo developer
+#minikube
+sudo apt install curl wget apt-transport-https -y
+curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+chmod +x minikube
+mv ./minikube /usr/local/bin/minikube
 
+# run minikube
 su - developer
+minikube start --driver=docker #--force
+minikube addons enable ingress
+eval $(minikube -p minikube docker-env)
+minikube tunnel -c &> /dev/null &
 
-sudo usermod -aG docker $USER && newgrp docker
-minikube start --driver=docker

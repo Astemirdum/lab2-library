@@ -173,7 +173,7 @@ jobs:
       - name: Push helm charts
         run: |
           helm package ${{ HELM_NAME }}
-          helm push ${{ HELM_NAME }}-{{HELM_VERSION}}.tgz ${{ REGISTRY }}
+          helm push ${{ HELM_NAME }}-${{ HELM_VERSION }}.tgz ${{ REGISTRY }}
 
   deploy:
     if: github.repository == 'skip'
@@ -238,8 +238,8 @@ jobs:
           script: |
             echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
             helm pull ${{ REGISTRY }}/${{ HELM_NAME }} --version ${{ HELM_VERSION }} --untar
-            helm upgrade --install ${MY_RELEASE} ${HELM_NAME} -f ${HELM_NAME}/values.yaml  \
-              --namespace ${NAMESPACE} \
+            helm upgrade --install ${ MY_RELEASE } ${{ HELM_NAME }} -f ${{ HELM_NAME }}/values.yaml  \
+              --namespace ${{ NAMESPACE }} \
               --create-namespace \
               --atomic \
               --timeout 120s \

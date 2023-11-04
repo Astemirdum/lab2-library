@@ -259,9 +259,9 @@ jobs:
           environment: v4/postman/environment.json
           delayRequest: 100
           reporters: '[ "cli" ]'
-          envVar: '[{ "key": "baseUrl", "value": "http://${{ HOST }}" }]'
-        env:
-          HOST: ${{ secrets.SSH_HOST }}
+          envVar: '[{ "key": "baseUrl", "value": "http://${{ secrets.SSH_HOST }}" }]'
+#        env:
+#          HOST: ${{ secrets.SSH_HOST }}
 
   deploy-render:
     if: github.repository == 'skip'

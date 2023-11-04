@@ -16,7 +16,7 @@ env:
 
 jobs:
   build:
-#    if: github.repository == 'skip'
+    if: github.repository == 'skip'
     name: build
     runs-on: ubuntu-latest
     steps:
@@ -149,7 +149,7 @@ jobs:
 
   publish:
 #    if: github.repository == 'skip'
-    needs: build
+#    needs: build
     name: Publish to Docker Hub
     runs-on: ubuntu-latest
     steps:
@@ -170,11 +170,12 @@ jobs:
 
       - name: Push helm charts
         run: |
-          helm package ${{ env.HELM_NAME }}
+          helm package helm/${{ env.HELM_NAME }}
           helm push ${{ env.HELM_NAME }}-${{ env.HELM_VERSION }}.tgz ${{ env.REGISTRY }}
 
   deploy:
     if: github.repository == 'skip'
+    name: Deploy Compose
     runs-on: ubuntu-latest
     needs: publish
 
@@ -212,6 +213,7 @@ jobs:
 
   deploy-helm:
 #    if: github.repository == 'skip'
+    name: Deploy HELM
     needs: publish
 
     runs-on: ubuntu-latest

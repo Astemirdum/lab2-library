@@ -9,7 +9,7 @@ metadata:
 spec:
   type: {{ .Values.rating.service.type }}
   ports:
-    - port: {{ .Values.rating.service.port }}
+    - port: {{ .Values.library.service.port }}
       targetPort: http
       protocol: TCP
   selector:

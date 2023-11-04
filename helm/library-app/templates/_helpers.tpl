@@ -150,7 +150,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{/*app strategy*/}}
 {{- define "library-app.strategy" -}}
 rollingUpdate:
-{{/*  maxSurge: {{ .Values.app.strategy.rollingUpdate.maxSurge}}*/}}
+  maxSurge: {{ .Values.app.strategy.rollingUpdate.maxSurge}}
   maxUnavailable: {{ .Values.app.strategy.rollingUpdate.maxUnavailable}}
 type: {{ .Values.app.strategy.type}}
 {{- end }}

@@ -33,15 +33,15 @@ spec:
 {{/*      serviceAccountName: {{ include "library-app.serviceAccountName" . }}*/}}
       securityContext:
         {{- toYaml .Values.app.podSecurityContext | nindent 8 }}
-      priorityClassName: {{ .Values.library.priority.className }}
+{{/*      priorityClassName: {{ .Values.library.priority.className }}*/}}
       initContainers:
-        - name: {{ .Chart.Name }}-init
+        - name: {{ include "library.fullname" . }}-init
           image: busybox:1.28
           command: {{ include "app.pgWait" . }} # wait for db to be ready
           env:
             {{- include "app.env.pgHostPortDB" . | nindent 12 }}
       containers:
-        - name: http-{{ .Chart.Name }}
+        - name: http-{{ include "library.fullname" . }}
           securityContext:
             {{- toYaml .Values.app.securityContext | nindent 12 }}
           image: "{{ .Values.library.image.repository }}:{{ .Values.library.image.tag | default .Chart.AppVersion }}"

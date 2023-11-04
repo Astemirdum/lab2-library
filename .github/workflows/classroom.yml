@@ -217,20 +217,19 @@ jobs:
     needs: publish
 
     runs-on: ubuntu-latest
-    environment: production
+#    environment: production
     concurrency: production
 
     env:
       WORK_DIR: ~/app
+      NAMESPACE: default
+      MY_RELEASE: lab4
     steps:
       - name: Code
         uses: actions/checkout@v3
 
       - name: Deploy to server
         uses: appleboy/ssh-action@master
-#        env:
-#          NAMESPACE: default
-#          MY_RELEASE: lab4
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}

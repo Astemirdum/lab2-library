@@ -228,9 +228,9 @@ jobs:
 
       - name: Deploy to server
         uses: appleboy/ssh-action@master
-        env:
-          NAMESPACE: default
-          MY_RELEASE: lab4
+#        env:
+#          NAMESPACE: default
+#          MY_RELEASE: lab4
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}

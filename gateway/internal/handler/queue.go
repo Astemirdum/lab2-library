@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -27,14 +26,15 @@ type enqueuerImpl struct {
 }
 
 func (q *enqueuerImpl) Enqueue(topic string, v any) error {
+	//data, err := json.Marshal(v)
+	//if err != nil {
+	//	return err
+	//}
+	//msg := &sarama.ProducerMessage{Topic: topic, Value: sarama.StringEncoder(data)}
+	//if _, _, err = q.producer.SendMessage(msg); err != nil {
+	//	return err
+	//}
 	return nil
-	data, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-	msg := &sarama.ProducerMessage{Topic: topic, Value: sarama.StringEncoder(data)}
-	_, _, err = q.producer.SendMessage(msg)
-	return err
 }
 
 func (q *enqueuerImpl) EnqueueV2(_ context.Context, fn func(ctx context.Context, userName string, stars int) (int, error), req model.RatingMsg) {

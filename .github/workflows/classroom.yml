@@ -10,8 +10,9 @@ on:
       - lab4
 
 env:
-  REGISTRY: oci://registry-1.docker.io/astdockerid1/library-app --version 0.1.0
-  APP_NAME: library-app
+  HELM_NAME: library-app
+  HELM_VERSION: 0.1.0
+  REGISTRY: oci://registry-1.docker.io/astdockerid1
 
 jobs:
   build:
@@ -76,14 +77,14 @@ jobs:
       - name: Code
         uses: actions/checkout@v3
 
-      - name: Run containers
-        timeout-minutes: 10
-        run: |
-          docker compose --env-file .env up -d --build
-          chmod +x scripts/wait-script.sh
-          bash scripts/wait-script.sh
-        env:
-          WAIT_PORTS: 8080,8070,8060,8050
+#      - name: Run containers
+#        timeout-minutes: 10
+#        run: |
+#          docker compose --env-file .env up -d --build
+#          chmod +x scripts/wait-script.sh
+#          bash scripts/wait-script.sh
+#        env:
+#          WAIT_PORTS: 8080,8070,8060,8050
 
 #      - name: Run API Tests
 #        timeout-minutes: 5
@@ -94,6 +95,29 @@ jobs:
 #          VARIANT: v4
 #          SERVICE_NAME: rating
 #          PORT_NUMBER: 8050
+
+      - name: start minikube
+        uses: medyagh/setup-minikube@latest
+        id: minikube
+        with:
+          cache: false
+          minikube-version: 1.24.0
+          driver: docker
+          container-runtime: containerd
+          kubernetes-version: v1.22.3
+          cpus: 4
+          memory: 4000m
+          cni: bridge
+          addons: registry,ingress
+          extra-config: 'kubelet.max-pods=10'
+          feature-gates: 'DownwardAPIHugePages=true'
+          mount-path: '/Users/user1/test-files:/testdata'
+          wait: false
+          insecure-registry: 'localhost:5000,10.0.0.0/24'
+          start-args: '--delete-on-failure --subnet 192.168.50.0'
+
+      - name: kubectl
+        run: kubectl get pods -A
 
       - name: Run API Tests
         uses: matt-ball/newman-action@master
@@ -129,8 +153,6 @@ jobs:
     name: Publish to Docker Hub
     runs-on: ubuntu-latest
     env:
-#      IMAGE_NAME:
-#      IMAGE_TAG:
       COMMIT_HASH: ${{ github.sha }}
     steps:
       - name: Code
@@ -145,21 +167,19 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-#      - name: Build images
-#        timeout-minutes: 10
-#        run: docker compose -f ./docker-compose.yaml --env-file .env build
-
-#      - name: Push images
-#        run: docker compose -f ./docker-compose.yaml --env-file .env push
+      - name: Install Helm
+        uses: azure/setup-helm@v3
 
       - name: Push helm charts
-        run: helm push library-app-0.1.0.tgz oci://registry-1.docker.io/astdockerid1
+        run: |
+          helm package ${{ HELM_NAME }}
+          helm push ${{ HELM_NAME }}-{{HELM_VERSION}}.tgz ${{ REGISTRY }}
 
   deploy:
-#    if: github.repository == 'skip'
+    if: github.repository == 'skip'
+    runs-on: ubuntu-latest
     needs: publish
 
-    runs-on: ubuntu-latest
     environment: production
     concurrency: production
 
@@ -175,24 +195,40 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          source: "docker-compose.yaml,.env,postgres"
+          source: "docker-compose.yaml,.env"
           target: "/${{ secrets.SSH_USER }}"
 
-#      - name: Deploy to server
-#        uses: appleboy/ssh-action@master
-#        with:
-#          host: ${{ secrets.SSH_HOST }}
-#          username: ${{ secrets.SSH_USER }}
-#          key: ${{ secrets.SSH_KEY }}
-#          script: |
-#            echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
-#            docker compose -f ./docker-compose.yaml --env-file .env pull
-#            docker compose -f ./docker-compose.yaml --env-file .env down --volumes || echo 'no compose'
-#            docker compose -f ./docker-compose.yaml --env-file .env up -d
+      - name: Deploy to server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+            docker compose -f ./docker-compose.yaml --env-file .env pull
+            docker compose -f ./docker-compose.yaml --env-file .env down --volumes || echo 'no compose'
+            docker compose -f ./docker-compose.yaml --env-file .env up -d
+
+
+
+  deploy-helm:
+#    if: github.repository == 'skip'
+    needs: publish
+
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency: production
+
+    env:
+      WORK_DIR: ~/app
+    steps:
+      - name: Code
+        uses: actions/checkout@v3
+
       - name: Deploy to server
         uses: appleboy/ssh-action@master
         env:
-          HELM: helm/library-app
           NAMESPACE: default
           MY_RELEASE: lab4
         with:
@@ -201,8 +237,8 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
-            helm pull ${{ REGISTRY }}/library-app --version 0.1.0
-            helm upgrade --install ${MY_RELEASE} ${HELM} -f ${HELM}/values.yaml  --set setter=lol --set setter1=lol1 \
+            helm pull ${{ REGISTRY }}/${{ HELM_NAME }} --version ${{ HELM_VERSION }} --untar
+            helm upgrade --install ${MY_RELEASE} ${HELM_NAME} -f ${HELM_NAME}/values.yaml  \
               --namespace ${NAMESPACE} \
               --create-namespace \
               --atomic \
@@ -217,6 +253,7 @@ jobs:
           sleep 100
         env:
           WAIT_PORTS: 80
+          HOST: ${{ secrets.SSH_HOST }}
 
       - name: Run API Tests
         uses: matt-ball/newman-action@master
@@ -225,6 +262,9 @@ jobs:
           environment: v4/postman/environment.json
           delayRequest: 100
           reporters: '[ "cli" ]'
+          envVar: '[{ "key": "baseUrl", "value": "http://${{ HOST }}" }]'
+        env:
+          HOST: ${{ secrets.SSH_HOST }}
 
   deploy-render:
     if: github.repository == 'skip'

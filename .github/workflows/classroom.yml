@@ -16,7 +16,7 @@ env:
 
 jobs:
   build:
-#    if: github.repository == 'skip'
+    if: github.repository == 'skip'
     name: build
     runs-on: ubuntu-latest
     steps:
@@ -148,7 +148,7 @@ jobs:
         run: docker compose down -v
 
   publish:
-#    if: github.repository == 'skip'
+    if: github.repository == 'skip'
     needs: build
     name: Publish to Docker Hub
     runs-on: ubuntu-latest
@@ -221,7 +221,7 @@ jobs:
   deploy-helm:
 #    if: github.repository == 'skip'
     name: Deploy HELM
-    needs: publish
+#    needs: publish
 
     runs-on: ubuntu-latest
     environment: production
@@ -244,7 +244,7 @@ jobs:
           source: "scripts/prepare-cluster.sh"
           target: "/${{ secrets.SSH_USER }}"
 
-      - name: Deploy to server
+      - name: run helm
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -260,11 +260,10 @@ jobs:
               --atomic \
               --timeout 120s \
               --debug
-            
-            sleep 30
+            sleep 100
             kubectl port-forward svc/gateway-svc 80:80 &> /dev/null &
 
-      - name: Run containers
+      - name: wait
         timeout-minutes: 10
         run: |
           sleep 30

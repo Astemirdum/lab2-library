@@ -95,7 +95,7 @@ gateway:
   fullname: "gateway"
 
   persistence:
-    enabled: true
+    enabled: false
     claimName: fileshare
     claim: 30Mi
     dataSource: { }

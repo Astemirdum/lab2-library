@@ -148,7 +148,7 @@ jobs:
         run: docker compose down -v
 
   publish:
-#    if: github.repository == 'skip'
+    if: github.repository == 'skip'
 #    needs: build
     name: Publish to Docker Hub
     runs-on: ubuntu-latest
@@ -219,7 +219,7 @@ jobs:
 
 
   deploy-helm:
-    if: github.repository == 'skip'
+#    if: github.repository == 'skip'
     name: Deploy HELM
 #    needs: publish
 
@@ -235,21 +235,30 @@ jobs:
       - name: Code
         uses: actions/checkout@v3
 
-      - name: Deploy to server
-        uses: appleboy/ssh-action@master
+      - name: Transfer compose
+        uses: appleboy/scp-action@v0.1.4
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          script: |
-            echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
-            helm pull ${{ env.REGISTRY }}/${{ env.HELM_NAME }} --version ${{ env.HELM_VERSION }} --untar
-            helm upgrade --install ${{ env.MY_RELEASE }} ${{ env.HELM_NAME }} -f ${{ env.HELM_NAME }}/values.yaml  \
-              --namespace ${{ env.NAMESPACE }} \
-              --create-namespace \
-              --atomic \
-              --timeout 120s \
-              --debug
+          source: "scripts/prepare-cluster.sh"
+          target: "/${{ secrets.SSH_USER }}"
+
+#      - name: Deploy to server
+#        uses: appleboy/ssh-action@master
+#        with:
+#          host: ${{ secrets.SSH_HOST }}
+#          username: ${{ secrets.SSH_USER }}
+#          key: ${{ secrets.SSH_KEY }}
+#          script: |
+#            echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+#            helm pull ${{ env.REGISTRY }}/${{ env.HELM_NAME }} --version ${{ env.HELM_VERSION }} --untar
+#            helm upgrade --install ${{ env.MY_RELEASE }} ${{ env.HELM_NAME }} -f ${{ env.HELM_NAME }}/values.yaml  \
+#              --namespace ${{ env.NAMESPACE }} \
+#              --create-namespace \
+#              --atomic \
+#              --timeout 120s \
+#              --debug
 
       - name: Run containers
         timeout-minutes: 10

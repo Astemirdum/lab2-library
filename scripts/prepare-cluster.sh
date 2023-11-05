@@ -35,10 +35,20 @@ curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/miniku
 chmod +x minikube
 mv ./minikube /usr/local/bin/minikube
 
+#su - developer
+
 # run minikube
-su - developer
-minikube start --driver=docker #--force
+minikube start --driver=docker --force
 minikube addons enable ingress
+minikube addons enable ingress-dns
 eval $(minikube -p minikube docker-env)
-minikube tunnel -c &> /dev/null &
+
+# network
+echo "$(minikube ip) minikubeip" >> /etc/hosts
+sysctl -w net.ipv4.conf.eth0.route_localnet=1
+export EXTERNAL_IP=80.249.151.135
+iptables -t nat -A PREROUTING -d ${EXTERNAL_IP} -p tcp -m tcp --dport 80 -j DNAT --to-destination 127.0.0.1:80
+kubectl port-forward svc/gateway-svc 80:80 &> /dev/null & #--address 0.0.0.0
+
+#minikube tunnel -c &> /dev/null &
 

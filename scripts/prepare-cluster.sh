@@ -46,8 +46,8 @@ eval $(minikube -p minikube docker-env)
 # network
 echo "$(minikube ip) minikubeip" >> /etc/hosts
 sysctl -w net.ipv4.conf.eth0.route_localnet=1
-export EXTERNAL_IP=80.249.151.135
-iptables -t nat -A PREROUTING -d ${EXTERNAL_IP} -p tcp -m tcp --dport 80 -j DNAT --to-destination 127.0.0.1:80
+
+iptables -t nat -A PREROUTING -d "${EXTERNAL_IP}" -p tcp -m tcp --dport 80 -j DNAT --to-destination 127.0.0.1:80
 kubectl port-forward svc/gateway-svc 80:80 &> /dev/null & #--address 0.0.0.0
 
 #minikube tunnel -c &> /dev/null &

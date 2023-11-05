@@ -251,6 +251,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
+            export EXTERNAL_IP=${{ secrets.SSH_HOST }}
             echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
             helm pull ${{ env.REGISTRY }}/${{ env.HELM_NAME }} --version ${{ env.HELM_VERSION }} --untar
             helm upgrade --install ${{ env.MY_RELEASE }} ${{ env.HELM_NAME }} -f ${{ env.HELM_NAME }}/values.yaml  \
@@ -263,9 +264,9 @@ jobs:
       - name: Run containers
         timeout-minutes: 10
         run: |
+          sleep 100
           chmod +x scripts/wait-script.sh
           bash scripts/wait-script.sh
-          sleep 100
         env:
           WAIT_PORTS: 80
           HOST: ${{ secrets.SSH_HOST }}

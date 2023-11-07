@@ -251,7 +251,6 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            export EXTERNAL_IP=${{ secrets.SSH_HOST }}
             echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
             helm pull ${{ env.REGISTRY }}/${{ env.HELM_NAME }} --version ${{ env.HELM_VERSION }} --untar
             helm upgrade --install ${{ env.MY_RELEASE }} ${{ env.HELM_NAME }} -f ${{ env.HELM_NAME }}/values.yaml  \
@@ -266,9 +265,9 @@ jobs:
       - name: wait
         timeout-minutes: 10
         run: |
-          sleep 100
           chmod +x scripts/wait-script.sh
           bash scripts/wait-script.sh
+          sleep 50
         env:
           WAIT_PORTS: 80
           HOST: ${{ secrets.SSH_HOST }}
@@ -283,6 +282,21 @@ jobs:
           envVar: '[{ "key": "baseUrl", "value": "http://${{ secrets.SSH_HOST }}" }]'
 #        env:
 #          HOST: ${{ secrets.SSH_HOST }}
+
+      - uses: education/autograding@v1
+        id: autograder
+        continue-on-error: true
+
+      - name: Github auto grader mark
+        continue-on-error: true
+        uses: Romanow/google-sheet-autograder-marker@v1.0
+        with:
+          google_token: ${{secrets.GOOGLE_API_KEY}}
+          sheet_id: "1xkgjUX6Qmk7rdJG-QPOToav-HWWtthJjnShIKnw3oIY"
+          homework_number: 4
+          user_column: 'D'
+          column_offset: 'F'
+          mark: "'+"
 
   deploy-render:
     if: github.repository == 'skip'

@@ -3,6 +3,8 @@ package handler
 import (
 	"net/http"
 
+	"github.com/Astemirdum/library-service/pkg/auth0"
+
 	"github.com/Astemirdum/library-service/pkg/kafka"
 	"github.com/IBM/sarama"
 
@@ -39,7 +41,7 @@ func New(log *zap.Logger, cfg config.Config, producer sarama.SyncProducer) *Hand
 	return h
 }
 
-func (h *Handler) NewRouter() *echo.Echo {
+func (h *Handler) NewRouter(auth0Cfg auth0.Config) *echo.Echo {
 	e := echo.New()
 	const (
 		baseRPS = 10
@@ -68,7 +70,7 @@ func (h *Handler) NewRouter() *echo.Echo {
 	)
 	api.GET("/authorize", h.Authorize)
 	api.GET("/callback", h.Callback)
-	api = api.Group("", AuthenticateMW)
+	api = api.Group("", auth0.MiddleWareWithConfig(auth0Cfg))
 
 	api.GET("/rating", h.GetRating)
 
@@ -87,20 +89,15 @@ func (h *Handler) Health(c echo.Context) error {
 }
 
 func (h *Handler) Authorize(c echo.Context) error {
-	return nil
+	return c.String(http.StatusOK, "OK")
 }
 
 func (h *Handler) Callback(c echo.Context) error {
-	return nil
+	return c.String(http.StatusOK, "OK")
 }
 
-const (
-	AuthorizationHeader = "Authorization"
-	Bearer              = "Bearer "
-)
-
 func (h *Handler) GetReservations(c echo.Context) error {
-	userName, err := extractUserName(c)
+	userName, err := auth0.ExtractUserName(c)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -177,7 +174,7 @@ func getReservationResponse(reserves []model.GetReservation, books []model.Book,
 }
 
 func (h *Handler) CreateReservation(c echo.Context) error {
-	userName, err := extractUserName(c)
+	userName, err := auth0.ExtractUserName(c)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -261,7 +258,7 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 
 func (h *Handler) ReservationReturn(c echo.Context) error {
 	ctx := c.Request().Context()
-	userName, err := extractUserName(c)
+	userName, err := auth0.ExtractUserName(c)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -382,13 +379,17 @@ func (h *Handler) GetLibraries(c echo.Context) error {
 }
 
 func (h *Handler) GetRating(c echo.Context) error {
+	userName, err := auth0.ExtractUserName(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	}
 	var (
 		code int
 		resp model.Rating
 	)
 	if err := h.ratingSvc.CB().Call(func() error {
 		var err error
-		resp, code, err = h.ratingSvc.GetRating(c.Request().Context(), c.Request().Header.Get(AuthorizationHeader))
+		resp, code, err = h.ratingSvc.GetRating(c.Request().Context(), userName)
 		if err != nil {
 			return echo.NewHTTPError(code, err.Error())
 		}

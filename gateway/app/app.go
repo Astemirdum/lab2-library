@@ -23,7 +23,7 @@ func Run(cfg config.Config) {
 	//}
 	h := handler.New(log, cfg, nil)
 
-	srv := server.NewServer(cfg.Server, h.NewRouter())
+	srv := server.NewServer(cfg.Server, h.NewRouter(cfg.Auth0))
 	log.Info("http server start ON: ",
 		zap.String("addr",
 			net.JoinHostPort(cfg.Server.Host, cfg.Server.Port)))

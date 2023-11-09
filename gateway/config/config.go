@@ -1,9 +1,13 @@
 package config
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/Astemirdum/library-service/pkg/auth0"
 
 	"github.com/Astemirdum/library-service/pkg/kafka"
 
@@ -35,9 +39,9 @@ type ReservationHTTPServer struct {
 }
 
 type Config struct {
-	Server HTTPServer `yaml:"server"`
-	Kafka  kafka.Config
-	//Database              postgres.DB `yaml:"db"`
+	Server                HTTPServer `yaml:"server"`
+	Kafka                 kafka.Config
+	Auth0                 auth0.Config
 	ReservationHTTPServer ReservationHTTPServer
 	LibraryHTTPServer     LibraryHTTPServer
 	RatingHTTPServer      RatingHTTPServer
@@ -61,13 +65,13 @@ func NewConfig(ops ...Option) Config {
 			log.Fatal("NewConfig ", err)
 		}
 		cfg = config
-		// printConfig(cfg)
+		printConfig(cfg)
 	})
 
 	return cfg
 }
 
-// func printConfig(cfg *Config) {
-//	jscfg, _ := json.MarshalIndent(cfg, "", "	") //nolint:errcheck
-//	fmt.Println(string(jscfg))
-//}
+func printConfig(cfg Config) {
+	jscfg, _ := json.MarshalIndent(cfg, "", "	") //nolint:errcheck
+	fmt.Println(string(jscfg))
+}

@@ -3,11 +3,11 @@ on:
   push:
     branches:
       - master
-#      - lab5
+      - lab5
   pull_request:
     branches:
       - master
-#      - lab5
+      - lab5
 
 env:
   HELM_NAME: library-app
@@ -279,9 +279,7 @@ jobs:
           environment: v4/postman/environment.json
           delayRequest: 100
           reporters: '[ "cli" ]'
-          envVar: '[{ "key": "baseUrl", "value": "http://${{ secrets.SSH_HOST }}" }]'
-#        env:
-#          HOST: ${{ secrets.SSH_HOST }}
+          envVar: '[{ "key": "serviceUrl", "value": "http://${{ secrets.SSH_HOST }}" },{ "key": "identityProviderUrl", "value": "https://dev-417yilvxdfygetpk.us.auth0.com" },{ "key": "audience", "value": "https://dev-417yilvxdfygetpk.us.auth0.com/api/v2/" },{ "key": "clientId", "value": "${{ secrets.AUTH0_CLIENT_ID }}" },{ "key": "clientSecret", "value": "${{ secrets.AUTH0_CLIENT_SECRET }}" }]'
 
       - uses: education/autograding@v1
         id: autograder

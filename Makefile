@@ -4,7 +4,7 @@ ENV=.env
 
 HELM=helm/library-app
 NAMESPACE=default
-MY_RELEASE=lab4
+MY_RELEASE=lab5
 
 .PHONY: helm-run
 helm-run:

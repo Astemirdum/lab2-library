@@ -7,7 +7,6 @@ import (
 	"github.com/IBM/sarama"
 
 	"github.com/Astemirdum/library-service/gateway/config"
-	"github.com/Astemirdum/library-service/gateway/internal/errs"
 	"github.com/Astemirdum/library-service/gateway/internal/model"
 	"github.com/Astemirdum/library-service/gateway/internal/service/library"
 	"github.com/Astemirdum/library-service/gateway/internal/service/rating"
@@ -69,7 +68,7 @@ func (h *Handler) NewRouter() *echo.Echo {
 	)
 	api.GET("/authorize", h.Authorize)
 	api.GET("/callback", h.Callback)
-	api = api.Group("", authMW)
+	api = api.Group("", AuthenticateMW)
 
 	api.GET("/rating", h.GetRating)
 
@@ -95,10 +94,15 @@ func (h *Handler) Callback(c echo.Context) error {
 	return nil
 }
 
+const (
+	AuthorizationHeader = "Authorization"
+	Bearer              = "Bearer "
+)
+
 func (h *Handler) GetReservations(c echo.Context) error {
-	userName := c.Request().Header.Get(XUserName)
-	if userName == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, errs.ErrUserName)
+	userName, err := extractUserName(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 	ctx := c.Request().Context()
 
@@ -173,11 +177,16 @@ func getReservationResponse(reserves []model.GetReservation, books []model.Book,
 }
 
 func (h *Handler) CreateReservation(c echo.Context) error {
+	userName, err := extractUserName(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	}
 	var createReservationRequest model.CreateReservationRequest
 	if err := c.Bind(&createReservationRequest); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	createReservationRequest.UserName = c.Request().Header.Get(XUserName)
+
+	createReservationRequest.UserName = userName
 	if err := c.Validate(createReservationRequest); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
@@ -187,7 +196,6 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 		book model.GetBook
 		rat  model.Rating
 		code int
-		err  error
 	)
 	gg, ctxCancel := errgroup.WithContext(ctx)
 	gg.Go(func() error {
@@ -253,9 +261,9 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 
 func (h *Handler) ReservationReturn(c echo.Context) error {
 	ctx := c.Request().Context()
-	username := c.Request().Header.Get(XUserName)
-	if username == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, errs.ErrUserName)
+	userName, err := extractUserName(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 	reservationUid := c.Param("reservationUid")
 	var req model.ReservationReturnRequest
@@ -265,7 +273,7 @@ func (h *Handler) ReservationReturn(c echo.Context) error {
 	if err := c.Validate(req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	res, code, err := h.reservationSvc.ReservationReturn(ctx, req, username, reservationUid)
+	res, code, err := h.reservationSvc.ReservationReturn(ctx, req, userName, reservationUid)
 	if err != nil {
 		return echo.NewHTTPError(code, err.Error())
 	}
@@ -317,10 +325,10 @@ func (h *Handler) ReservationReturn(c echo.Context) error {
 		stars = -10
 	}
 
-	if code, err := h.ratingSvc.Rating(ctx, username, stars); err != nil {
+	if code, err := h.ratingSvc.Rating(ctx, userName, stars); err != nil {
 		if code == http.StatusServiceUnavailable {
 			ratingMsg := model.RatingMsg{
-				Name:  username,
+				Name:  userName,
 				Stars: stars,
 			}
 			//h.enqueuer.EnqueueV2(ctx, h.ratingSvc.Rating, ratingMsg)
@@ -380,7 +388,7 @@ func (h *Handler) GetRating(c echo.Context) error {
 	)
 	if err := h.ratingSvc.CB().Call(func() error {
 		var err error
-		resp, code, err = h.ratingSvc.GetRating(c.Request().Context(), c.Request().Header.Get(XUserName))
+		resp, code, err = h.ratingSvc.GetRating(c.Request().Context(), c.Request().Header.Get(AuthorizationHeader))
 		if err != nil {
 			return echo.NewHTTPError(code, err.Error())
 		}

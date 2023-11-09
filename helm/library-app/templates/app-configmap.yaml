@@ -16,3 +16,5 @@ data:
   DB_PORT: "{{ .Values.configData.db.port  }}"
   DB_USER: "{{ .Values.configData.db.user }}"
   DB_NAME: "{{ .Values.configData.db.name }}"
+  AUTH0_DOMAIN: "{{ .Values.gateway.auth0.domain}}"
+  AUTH0_AUDIENCE: "{{ .Values.gateway.auth0.audience}}"

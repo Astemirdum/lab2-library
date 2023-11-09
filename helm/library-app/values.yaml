@@ -127,7 +127,9 @@ gateway:
     className: high-priority
     value: 10000
   terminationGracePeriodSeconds: 60
-
+  auth0:
+    domain: 'dev-417yilvxdfygetpk.us.auth0.com'
+    audience: 'https://dev-417yilvxdfygetpk.us.auth0.com/api/v2/'
 
 library:
   replicaCount: 1

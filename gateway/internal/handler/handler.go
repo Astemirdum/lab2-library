@@ -61,11 +61,15 @@ func (h *Handler) NewRouter() *echo.Echo {
 	base.GET("/swagger/*", echoSwagger.WrapHandler)
 
 	e.Validator = validate.NewCustomValidator()
+
 	api := e.Group("/api/v1",
 		middleware.RequestLoggerWithConfig(requestLoggerConfig()),
 		middleware.RequestID(),
 		newRateLimiterMW(apiRPS),
 	)
+	api.GET("/authorize", h.Authorize)
+	api.GET("/callback", h.Callback)
+	api = api.Group("", authMW)
 
 	api.GET("/rating", h.GetRating)
 
@@ -83,9 +87,13 @@ func (h *Handler) Health(c echo.Context) error {
 	return c.String(http.StatusOK, "OK")
 }
 
-const (
-	XUserName = "X-User-Name"
-)
+func (h *Handler) Authorize(c echo.Context) error {
+	return nil
+}
+
+func (h *Handler) Callback(c echo.Context) error {
+	return nil
+}
 
 func (h *Handler) GetReservations(c echo.Context) error {
 	userName := c.Request().Header.Get(XUserName)

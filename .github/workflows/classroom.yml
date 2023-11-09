@@ -3,11 +3,11 @@ on:
   push:
     branches:
       - master
-      - lab4
+#      - lab5
   pull_request:
     branches:
       - master
-      - lab4
+#      - lab5
 
 env:
   HELM_NAME: library-app

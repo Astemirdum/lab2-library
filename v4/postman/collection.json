@@ -1,15 +1,140 @@
 {
 	"info": {
-		"_postman_id": "495af3e4-e965-4520-8005-8828e3110b9b",
-		"name": "[rsoi][lab4] Library System",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+		"_postman_id": "e3528f2e-2938-4381-8aa9-0eafeeed450c",
+		"name": "[rsoi][lab5] Library System",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "976707"
 	},
 	"item": [
 		{
 			"name": "Gateway API",
 			"item": [
 				{
-					"name": "Получить список библиотек в городе",
+					"name": "[auth] Get Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Получить токен\", () => {",
+									"    pm.response.to.have.status(200)",
+									"    pm.expect(pm.response.headers.get(\"Content-Type\")).to.contains(\"application/json\");",
+									"",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.access_token).not.be.empty",
+									"    pm.collectionVariables.set(\"authorizationToken\", response.access_token)",
+									"})"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "scope",
+									"value": "openid",
+									"type": "text"
+								},
+								{
+									"key": "grant_type",
+									"value": "password",
+									"type": "text"
+								},
+								{
+									"key": "username",
+									"value": "{{username}}",
+									"type": "text"
+								},
+								{
+									"key": "password",
+									"value": "{{password}}",
+									"type": "text"
+								},
+								{
+									"key": "clientId",
+									"value": "{{clientId}}",
+									"type": "text"
+								},
+								{
+									"key": "clientSecret",
+									"value": "{{clientSecret}}",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{identityProviderUrl}}/oauth/token",
+							"host": [
+								"{{identityProviderUrl}}"
+							],
+							"path": [
+								"oauth",
+								"token"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[unauthorize] Получить список библиотек в городе",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Получить список библиотек в городе\", () => {",
+									"    pm.response.to.have.status(401)",
+									"})"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{serviceUrl}}/api/v1/libraries?page=1&size=10&city=Москва",
+							"host": [
+								"{{serviceUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"libraries"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								},
+								{
+									"key": "city",
+									"value": "Москва",
+									"description": "Город"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[success] Получить список библиотек в городе",
 					"event": [
 						{
 							"listen": "test",
@@ -42,12 +167,22 @@
 						}
 					],
 					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authorizationToken}}",
+									"type": "string"
+								}
+							]
+						},
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/libraries?page=1&size=10&city=Москва",
+							"raw": "{{serviceUrl}}/api/v1/libraries?page=1&size=10&city=Москва",
 							"host": [
-								"{{baseUrl}}"
+								"{{serviceUrl}}"
 							],
 							"path": [
 								"api",
@@ -71,54 +206,68 @@
 							]
 						}
 					},
-					"response": [
-						{
-							"name": "Список библиотек в городе",
-							"originalRequest": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/libraries?page=1&size=10&city=Москва",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"libraries"
-									],
-									"query": [
-										{
-											"key": "page",
-											"value": "1"
-										},
-										{
-											"key": "size",
-											"value": "10"
-										},
-										{
-											"key": "city",
-											"value": "Москва"
-										}
-									]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n    \"page\": 1,\n    \"pageSize\": 1,\n    \"totalElements\": 1,\n    \"items\": [\n        {\n            \"libraryUid\": \"83575e12-7ce0-48ee-9931-51919ff3c9ee\",\n            \"name\": \"Библиотека имени 7 Непьющих\",\n            \"address\": \"2-я Бауманская ул., д.5, стр.1\",\n            \"city\": \"Москва\"\n        }\n    ]\n}"
-						}
-					]
+					"response": []
 				},
 				{
-					"name": "Получить список книг в выбранной библиотеке",
+					"name": "[unauthorize] Получить список книг в выбранной библиотеке",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Получить список книг в выбранной библиотеке\", () => {",
+									"    pm.response.to.have.status(401)",
+									"})"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{serviceUrl}}/api/v1/libraries/:libraryUid/books?page=1&size=25&showAll=false",
+							"host": [
+								"{{serviceUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"libraries",
+								":libraryUid",
+								"books"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "size",
+									"value": "25"
+								},
+								{
+									"key": "showAll",
+									"value": "false"
+								}
+							],
+							"variable": [
+								{
+									"key": "libraryUid",
+									"value": "{{libraryUid}}",
+									"description": "UUID библиотеки"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[success] Получить список книг в выбранной библиотеке",
 					"event": [
 						{
 							"listen": "test",
@@ -151,12 +300,22 @@
 						}
 					],
 					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authorizationToken}}",
+									"type": "string"
+								}
+							]
+						},
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/libraries/:libraryUid/books?page=1&size=25&showAll=false",
+							"raw": "{{serviceUrl}}/api/v1/libraries/:libraryUid/books?page=1&size=25&showAll=false",
 							"host": [
-								"{{baseUrl}}"
+								"{{serviceUrl}}"
 							],
 							"path": [
 								"api",
@@ -188,62 +347,45 @@
 							]
 						}
 					},
-					"response": [
-						{
-							"name": "Список книг библиотеке",
-							"originalRequest": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/libraries/:libraryUid/books?page=1&size=25&showAll=true",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"libraries",
-										":libraryUid",
-										"books"
-									],
-									"query": [
-										{
-											"key": "page",
-											"value": "1"
-										},
-										{
-											"key": "size",
-											"value": "25"
-										},
-										{
-											"key": "showAll",
-											"value": "true"
-										}
-									],
-									"variable": [
-										{
-											"key": "libraryUid",
-											"value": "{{libraryUid}}"
-										}
-									]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n    \"page\": 1,\n    \"pageSize\": 1,\n    \"totalElements\": 1,\n    \"items\": [\n        {\n            \"bookUid\": \"f7cdc58f-2caf-4b15-9727-f89dcc629b27\",\n            \"name\": \"Краткий курс C++ в 7 томах\",\n            \"author\": \"Бьерн Страуструп\",\n            \"genre\": \"Научная фантастика\",\n            \"condition\": \"EXCELLENT\",\n            \"availableCount\": 1\n        }\n    ]\n}"
-						}
-					]
+					"response": []
 				},
 				{
-					"name": "Получить рейтинг пользователя",
+					"name": "[unauthorize] Получить рейтинг пользователя",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Получить рейтинг пользователя\", () => {",
+									"    pm.response.to.have.status(401)",
+									"})"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{serviceUrl}}/api/v1/rating",
+							"host": [
+								"{{serviceUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"rating"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[success] Получить рейтинг пользователя",
 					"event": [
 						{
 							"listen": "test",
@@ -263,18 +405,22 @@
 						}
 					],
 					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authorizationToken}}",
+									"type": "string"
+								}
+							]
+						},
 						"method": "GET",
-						"header": [
-							{
-								"description": "Имя пользователя",
-								"key": "X-User-Name",
-								"value": "{{username}}"
-							}
-						],
+						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/rating",
+							"raw": "{{serviceUrl}}/api/v1/rating",
 							"host": [
-								"{{baseUrl}}"
+								"{{serviceUrl}}"
 							],
 							"path": [
 								"api",
@@ -283,46 +429,54 @@
 							]
 						}
 					},
-					"response": [
-						{
-							"name": "Рейтинг пользователя",
-							"originalRequest": {
-								"method": "GET",
-								"header": [
-									{
-										"description": "Имя пользователя",
-										"key": "X-User-Name",
-										"value": "{{username}}"
-									}
-								],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/rating",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"rating"
-									]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n    \"stars\": 75\n}"
-						}
-					]
+					"response": []
 				},
 				{
-					"name": "Взять книгу в библиотеке",
+					"name": "[unauthorize] Взять книгу в библиотеке",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Взять книгу в библиотеке\", () => {",
+									"    pm.response.to.have.status(401)",
+									"})"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bookUid\": \"{{bookUid}}\",\n    \"libraryUid\": \"{{libraryUid}}\",\n    \"tillDate\": \"2021-10-11\"\n}"
+						},
+						"url": {
+							"raw": "{{serviceUrl}}/api/v1/reservations",
+							"host": [
+								"{{serviceUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"reservations"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[success] Взять книгу в библиотеке",
 					"event": [
 						{
 							"listen": "test",
@@ -364,13 +518,18 @@
 						}
 					],
 					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authorizationToken}}",
+									"type": "string"
+								}
+							]
+						},
 						"method": "POST",
 						"header": [
-							{
-								"description": "Имя пользователя",
-								"key": "X-User-Name",
-								"value": "{{username}}"
-							},
 							{
 								"key": "Content-Type",
 								"value": "application/json"
@@ -381,9 +540,9 @@
 							"raw": "{\n    \"bookUid\": \"{{bookUid}}\",\n    \"libraryUid\": \"{{libraryUid}}\",\n    \"tillDate\": \"2021-10-11\"\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/reservations",
+							"raw": "{{serviceUrl}}/api/v1/reservations",
 							"host": [
-								"{{baseUrl}}"
+								"{{serviceUrl}}"
 							],
 							"path": [
 								"api",
@@ -392,61 +551,45 @@
 							]
 						}
 					},
-					"response": [
-						{
-							"name": "Информация о бронировании",
-							"originalRequest": {
-								"method": "POST",
-								"header": [
-									{
-										"description": "Имя пользователя",
-										"key": "X-User-Name",
-										"value": "{{username}}"
-									},
-									{
-										"key": "Content-Type",
-										"name": "Content-Type",
-										"value": "application/json",
-										"type": "text"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"bookUid\": \"{{bookUid}}\",\n    \"libraryUid\": \"{{libraryUid}}\",\n    \"tillDate\": \"2021-10-11\"\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/reservations",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"reservations"
-									]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n \"reservationUid\": \"f464ca3a-fcf7-4e3f-86f0-76c7bba96f72\",\n \"status\": \"RENTED\",\n \"startDate\": \"2021-10-09\",\n \"tillDate\": \"2021-10-11\",\n \"book\": {\n  \"bookUid\": \"f7cdc58f-2caf-4b15-9727-f89dcc629b27\",\n  \"name\": \"Краткий курс C++ в 7 томах\",\n  \"author\": \"Бьерн Страуструп\",\n  \"genre\": \"Научная фантастика\"\n },\n \"library\": {\n  \"libraryUid\": \"83575e12-7ce0-48ee-9931-51919ff3c9ee\",\n  \"name\": \"Библиотека имени 7 Непьющих\",\n  \"address\": \"2-я Бауманская ул., д.5, стр.1\",\n  \"city\": \"Москва\"\n },\n \"rating\": {\n  \"stars\": 75\n }\n}"
-						}
-					]
+					"response": []
 				},
 				{
-					"name": "Получить информацию по всем взятым в прокат книгам пользователя",
+					"name": "[unauthorize] Получить информацию по всем взятым в прокат книгам пользователя",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Получить информацию по всем взятым в прокат книгам пользователя\", () => {",
+									"    pm.response.to.have.status(401)",
+									"})"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{serviceUrl}}/api/v1/reservations",
+							"host": [
+								"{{serviceUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"reservations"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[success] Получить информацию по всем взятым в прокат книгам пользователя",
 					"event": [
 						{
 							"listen": "test",
@@ -485,18 +628,22 @@
 						}
 					],
 					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authorizationToken}}",
+									"type": "string"
+								}
+							]
+						},
 						"method": "GET",
-						"header": [
-							{
-								"description": "Имя пользователя",
-								"key": "X-User-Name",
-								"value": "{{username}}"
-							}
-						],
+						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/reservations",
+							"raw": "{{serviceUrl}}/api/v1/reservations",
 							"host": [
-								"{{baseUrl}}"
+								"{{serviceUrl}}"
 							],
 							"path": [
 								"api",
@@ -505,53 +652,17 @@
 							]
 						}
 					},
-					"response": [
-						{
-							"name": "Информация по всем взятым в прокат книгам",
-							"originalRequest": {
-								"method": "GET",
-								"header": [
-									{
-										"description": "Имя пользователя",
-										"key": "X-User-Name",
-										"value": "{{username}}"
-									}
-								],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/reservations",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"reservations"
-									]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "[\n    {\n        \"reservationUid\": \"f464ca3a-fcf7-4e3f-86f0-76c7bba96f72\",\n        \"status\": \"RENTED\",\n        \"startDate\": \"2021-10-09\",\n        \"tillDate\": \"2021-10-11\",\n        \"book\": {\n            \"bookUid\": \"f7cdc58f-2caf-4b15-9727-f89dcc629b27\",\n            \"name\": \"Краткий курс C++ в 7 томах\",\n            \"author\": \"Бьерн Страуструп\",\n            \"genre\": \"Научная фантастика\"\n        },\n        \"library\": {\n            \"libraryUid\": \"83575e12-7ce0-48ee-9931-51919ff3c9ee\",\n            \"name\": \"Библиотека имени 7 Непьющих\",\n            \"address\": \"2-я Бауманская ул., д.5, стр.1\",\n            \"city\": \"Москва\"\n        }\n    }\n]"
-						}
-					]
+					"response": []
 				},
 				{
-					"name": "Вернуть книгу",
+					"name": "[unauthorize] Вернуть книгу",
 					"event": [
 						{
 							"listen": "test",
 							"script": {
 								"exec": [
 									"pm.test(\"Вернуть книгу\", () => {",
-									"    pm.response.to.have.status(204)",
+									"    pm.response.to.have.status(401)",
 									"})"
 								],
 								"type": "text/javascript"
@@ -559,13 +670,11 @@
 						}
 					],
 					"request": {
+						"auth": {
+							"type": "noauth"
+						},
 						"method": "POST",
 						"header": [
-							{
-								"description": "Имя пользователя",
-								"key": "X-User-Name",
-								"value": "{{username}}"
-							},
 							{
 								"key": "Content-Type",
 								"value": "application/json"
@@ -576,9 +685,9 @@
 							"raw": "{\n    \"condition\": \"EXCELLENT\",\n    \"date\": \"2021-10-11\"\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/reservations/:reservationUid/return",
+							"raw": "{{serviceUrl}}/api/v1/reservations/:reservationUid/return",
 							"host": [
-								"{{baseUrl}}"
+								"{{serviceUrl}}"
 							],
 							"path": [
 								"api",
@@ -596,57 +705,70 @@
 							]
 						}
 					},
-					"response": [
-						{
-							"name": "Книга успешно возвращена",
-							"originalRequest": {
-								"method": "POST",
-								"header": [
-									{
-										"description": "Имя пользователя",
-										"key": "X-User-Name",
-										"value": "{{username}}"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"condition\": \"EXCELLENT\",\n    \"date\": \"2021-10-11\"\n}"
-								},
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/reservations/:reservationUid/return",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"reservations",
-										":reservationUid",
-										"return"
-									],
-									"variable": [
-										{
-											"key": "reservationUid"
-										}
-									]
-								}
-							},
-							"status": "No Content",
-							"code": 204,
-							"_postman_previewlanguage": "text",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "text/plain"
-								}
-							],
-							"cookie": [],
-							"body": ""
-						}
-					]
+					"response": []
 				},
 				{
-					"name": "Получить рейтинг пользователя",
+					"name": "[success] Вернуть книгу",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Вернуть книгу\", () => {",
+									"    pm.response.to.have.status(204)",
+									"})"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authorizationToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"condition\": \"EXCELLENT\",\n    \"date\": \"2021-10-11\"\n}"
+						},
+						"url": {
+							"raw": "{{serviceUrl}}/api/v1/reservations/:reservationUid/return",
+							"host": [
+								"{{serviceUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"reservations",
+								":reservationUid",
+								"return"
+							],
+							"variable": [
+								{
+									"key": "reservationUid",
+									"value": "{{reservationUid}}",
+									"description": "UUID бронирования"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[success] Получить рейтинг пользователя",
 					"event": [
 						{
 							"listen": "test",
@@ -667,18 +789,22 @@
 						}
 					],
 					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authorizationToken}}",
+									"type": "string"
+								}
+							]
+						},
 						"method": "GET",
-						"header": [
-							{
-								"description": "Имя пользователя",
-								"key": "X-User-Name",
-								"value": "{{username}}"
-							}
-						],
+						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/rating",
+							"raw": "{{serviceUrl}}/api/v1/rating",
 							"host": [
-								"{{baseUrl}}"
+								"{{serviceUrl}}"
 							],
 							"path": [
 								"api",
@@ -687,45 +813,12 @@
 							]
 						}
 					},
-					"response": [
-						{
-							"name": "Рейтинг пользователя",
-							"originalRequest": {
-								"method": "GET",
-								"header": [
-									{
-										"description": "Имя пользователя",
-										"key": "X-User-Name",
-										"value": "{{username}}"
-									}
-								],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/rating",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"rating"
-									]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n    \"stars\": 75\n}"
-						}
-					]
+					"response": []
 				}
 			],
+			"auth": {
+				"type": "noauth"
+			},
 			"event": [
 				{
 					"listen": "prerequest",
@@ -733,8 +826,7 @@
 						"type": "text/javascript",
 						"exec": [
 							"pm.collectionVariables.set(\"libraryUid\", \"83575e12-7ce0-48ee-9931-51919ff3c9ee\")",
-							"pm.collectionVariables.set(\"bookUid\", \"f7cdc58f-2caf-4b15-9727-f89dcc629b27\")",
-							"pm.collectionVariables.set(\"username\", \"Test Max\")"
+							"pm.collectionVariables.set(\"bookUid\", \"f7cdc58f-2caf-4b15-9727-f89dcc629b27\")"
 						]
 					}
 				},
@@ -752,8 +844,8 @@
 	],
 	"variable": [
 		{
-			"key": "baseUrl",
-			"value": ""
+			"key": "serviceUrl",
+			"value": "http://localhost:8080"
 		},
 		{
 			"key": "libraryUid",
@@ -764,15 +856,15 @@
 			"value": ""
 		},
 		{
-			"key": "username",
-			"value": ""
-		},
-		{
 			"key": "stars",
 			"value": ""
 		},
 		{
 			"key": "reservationUid",
+			"value": ""
+		},
+		{
+			"key": "authorizationToken",
 			"value": ""
 		}
 	]

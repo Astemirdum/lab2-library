@@ -6,9 +6,18 @@ HELM=helm/library-app
 NAMESPACE=default
 MY_RELEASE=lab5
 
+
+.PHONY: helm-db-run
+helm-db-run:
+	helm upgrade --install ${MY_RELEASE} \
+		--set primary.initdb.scriptsConfigMap="postgresql-db-initdb-config" \
+		--set primary.persistence.size="100Mi" \
+ 		oci://registry-1.docker.io/bitnamicharts/postgresql
+
 .PHONY: helm-run
 helm-run:
-	helm upgrade --install ${MY_RELEASE} ${HELM} -f ${HELM}/values.yaml  --set setter=lol --set setter1=lol1 \
+	helm upgrade ${MY_RELEASE}-app ${HELM} -f ${HELM}/values.yaml  --set setter=lol --set setter1=lol1 \
+		--install \
 		--namespace ${NAMESPACE} \
         --create-namespace \
         --atomic \

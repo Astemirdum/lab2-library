@@ -92,14 +92,14 @@ spec:
           resources:
             {{- toYaml .Values.library.resources | nindent 12 }}
           volumeMounts:
-            - name: host-data
-              mountPath: /files
+{{/*            - name: host-data*/}}
+{{/*              mountPath: /psp*/}}
 
       restartPolicy: {{ .Values.library.restartPolicy }}
       volumes:
-        - name: host-data
-          hostPath:
-            path: /files
+{{/*        - name: host-data*/}}
+{{/*          hostPath:*/}}
+{{/*            path: /psp*/}}
       {{- with .Values.app.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

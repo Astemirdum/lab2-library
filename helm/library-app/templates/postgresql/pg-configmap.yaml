@@ -6,9 +6,9 @@ metadata:
     {{- include "db.labels" . | nindent 4 }}
   namespace: {{ include "library-app.namespace" . }}
 data:
-  POSTGRES_DB: {{ .Values.configData.db.name }}
-  POSTGRES_USER: {{ .Values.configData.db.user }}
-  PGDATA: {{ .Values.configData.db.data }}
+  POSTGRES_DB: "{{ .Values.configData.db.name }}"
+  POSTGRES_USER: "{{ .Values.configData.db.user }}"
+  PGDATA: "{{ .Values.configData.db.data }}"
   DB_HOST: "{{ .Values.configData.db.host }}"
   DB_PORT: "{{ .Values.configData.db.port  }}"
 ---

@@ -1,3 +1,4 @@
+{{- if .Values.db.enabled -}}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -46,10 +47,8 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if .Values.db.priority.className }}
+      {{- if .Values.db.priority.enabled }}
       priorityClassName: {{ .Values.db.priority.className | quote }}
-      {{- else if .Values.priorityClassName }}
-      priorityClassName: {{ .Values.priorityClassName | quote }}
       {{- end }}
       containers:
         - name: postgres-db
@@ -102,12 +101,12 @@ spec:
             name: {{ include "db.name" . }}-initdb-config
           {{- end }}
 
-  {{- if and .Values.db.persistence.enabled .Values.db.persistence.claimName }}
+  {{- if and .Values.db.persistence.enabled .Values.db.persistence.enabled }}
         - name: {{ include "db.name" . }}-data
           persistentVolumeClaim:
-            claimName: {{ tpl .Values.db.persistence.claimName . }}
+            claimName: {{ .Values.db.persistence.claimName . }}
   {{- else if not .Values.db.persistence.enabled }}
-        - name: data
+        - name: {{ include "db.name" . }}-data
           emptyDir: {}
   {{- else if and .Values.db.persistence.enabled (not .Values.db.persistence.claimName) }}
   volumeClaimTemplates:
@@ -124,3 +123,4 @@ spec:
             storage: {{ .Values.db.persistence.size | quote }}
 
   {{- end }}
+{{- end }}

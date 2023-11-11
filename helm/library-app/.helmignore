@@ -3,6 +3,9 @@
 # negation (prefixed with !). Only one pattern per line.
 .DS_Store
 # Common VCS dirs
+
+# templates/postgresql
+
 .git/
 .gitignore
 .bzr/

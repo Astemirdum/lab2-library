@@ -91,15 +91,15 @@ spec:
           {{- include "reservation.health" . | nindent 10 }}
           resources:
             {{- toYaml .Values.reservation.resources | nindent 12 }}
-          volumeMounts:
-            - name: host-data
-              mountPath: /files
+{{/*          volumeMounts:*/}}
+{{/*            - name: host-data*/}}
+{{/*              mountPath: /psp*/}}
 
       restartPolicy: {{ .Values.reservation.restartPolicy }}
       volumes:
-        - name: host-data
-          hostPath:
-            path: /files
+{{/*        - name: host-data*/}}
+{{/*          hostPath:*/}}
+{{/*            path: /psp*/}}
       {{- with .Values.app.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

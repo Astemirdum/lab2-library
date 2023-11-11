@@ -16,7 +16,7 @@ env:
 
 jobs:
   build:
-#    if: github.repository == 'skip'
+    if: github.repository == 'skip'
     name: build
     runs-on: ubuntu-latest
     steps:
@@ -149,9 +149,20 @@ jobs:
 
   publish:
 #    if: github.repository == 'skip'
-    needs: build
+#    needs: build
     name: Publish to Docker Hub
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - dockerfile: docker/gateway.Dockerfile
+            image: astdockerid1/gateway
+          - dockerfile: docker/rating.Dockerfile
+            image: astdockerid1/rating
+          - dockerfile: docker/library.Dockerfile
+            image: astdockerid1/library
+          - dockerfile: docker/reservation.Dockerfile
+            image: astdockerid1/reservation
     steps:
       - name: Code
         uses: actions/checkout@v3
@@ -165,12 +176,22 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-      - name: Build images
-        timeout-minutes: 10
-        run: docker compose -f ./docker-compose.yaml --env-file .env build
+#      - name: Build images
+#        timeout-minutes: 10
+#        run: docker compose -f ./docker-compose.yaml --env-file .env build
+#      - name: Push images
+#        run: docker compose -f ./docker-compose.yaml --env-file .env push
 
-      - name: Push images
-        run: docker compose -f ./docker-compose.yaml --env-file .env push
+      - name: "Build&Publish images"
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          file: ${{ matrix.dockerfile }}
+          tags: |
+            ${{ matrix.image }}:${{ github.sha }}
+            ${{ matrix.image }}:latest
+          secret-files: .env
+#          secrets: GIT_AUTH_TOKEN=${{ secrets.MYTOKEN }}
 
       - name: Install Helm
         uses: azure/setup-helm@v3
@@ -218,6 +239,43 @@ jobs:
 
 
 
+
+  deploy-helm-v2:
+    name: Deploy HELM V2
+    needs: [ publish ]
+    runs-on: ubuntu-latest
+
+    environment: production
+    concurrency: production
+    env:
+      KUBECONFIG: /tmp/config
+      HELM: helm/library-app
+      NAMESPACE: default
+      MY_RELEASE: lab5
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Write out the kubeconfig info
+        run: |
+          echo ${{ secrets.KUBE_CONFIG }} > ${{ env.KUBECONFIG }}
+          chmod 0600 ${{ env.KUBECONFIG }}
+
+      - name: Install deps
+        run: curl -sSL https://hub.mcs.mail.ru/repository/client-keystone-auth/latest/linux/client-install.sh | bash
+
+      - name: Lint Helm
+        run: |
+          helm lint ${{ env.HELM }}
+
+      - name: Deploy API
+        run: |
+          source ~/vk-cloud-solutions/path.bash.inc
+          helm upgrade ${{ env.MY_RELEASE }} ${{ env.HELM }} --install --wait --atomic --namespace=${{ env.NAMESPACE }} --values=${{ env.HELM }}/values.yaml --timeout 120s --debug
+
+      - name: Cleanup kubeconfig info
+        if: success() || failure()
+        run: rm -f ${{ env.KUBECONFIG }}
+
   deploy-helm:
 #    if: github.repository == 'skip'
     name: Deploy HELM
@@ -230,7 +288,7 @@ jobs:
     env:
       WORK_DIR: ~/app
       NAMESPACE: default
-      MY_RELEASE: lab4
+      MY_RELEASE: lab5
     steps:
       - name: Code
         uses: actions/checkout@v3
@@ -271,6 +329,20 @@ jobs:
         env:
           WAIT_PORTS: 80
           HOST: ${{ secrets.SSH_HOST }}
+
+  autograde:
+    #    if: github.repository == 'skip'
+    name: autograde
+    needs:
+#      - deploy-helm
+      - deploy-helm-v2
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Update /etc/hosts
+        run: sudo echo "${{ secrets.SSH_HOST }} lolkek.com" | sudo tee -a /etc/hosts
 
       - name: Run API Tests
         uses: matt-ball/newman-action@master

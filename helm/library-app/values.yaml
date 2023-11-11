@@ -41,7 +41,7 @@ configData:
     dbName: ratings
 
   db:
-    host: "postgresql-db-lb"
+    host: "postgresql-db-ip"
     port: "5432"
     user: "postgres"
     name: "postgres"
@@ -240,6 +240,7 @@ rating:
   terminationGracePeriodSeconds: 60
 
 db:
+  enabled: true
   nodeSelector: {}
   podAnnotations: { }
   imagePullSecrets: [ ]
@@ -278,8 +279,15 @@ db:
   containerPort: 5432
   portName: postgresql
   probeEnabled: true
+  job:
+    enabled: false
   service:
+    ip:
+      enabled: true
+      type: ClusterIP
+      port: 5432
     lb:
+      enabled: false
       type: LoadBalancer
       port: 5432
     np:
@@ -288,15 +296,16 @@ db:
       port: 5432
       nodePort: 32761
   priority:
+    enabled: false
     className: db-priority
     value: 10001
 
   persistence:
-    enabled: true
-    claimName: # "pg-data"
+    enabled: false #true
+    claimName: #"pg-data"
     claim: 100Mi
 
-    accessModes: ["ReadWriteOnce"]
+    accessModes: ["ReadWriteOnce"] #"ReadWriteOnce"
     size: 100Mi
     subPath:
 
@@ -311,7 +320,7 @@ ingress:
     # kubernetes.io/tls-acme: "true"
     nginx.ingress.kubernetes.io/use-regex: "true"
   hosts:
-    - host: minikubeip
+    - host: lolkek.com #minikubeip
       paths:
         - path: /* # /api/v1/*
           pathType: Prefix

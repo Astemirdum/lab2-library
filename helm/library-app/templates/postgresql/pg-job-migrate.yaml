@@ -1,3 +1,4 @@
+{{- if .Values.db.job.enabled -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -49,3 +50,4 @@ spec:
         - name: {{ include "db.name" . }}-initdb
           configMap:
             name: {{ include "db.name" . }}-initdb-config
+{{- end}}

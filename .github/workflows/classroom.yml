@@ -16,7 +16,7 @@ env:
 
 jobs:
   build:
-    if: github.repository == 'skip'
+#    if: github.repository == 'skip'
     name: build
     runs-on: ubuntu-latest
     steps:
@@ -148,8 +148,8 @@ jobs:
         run: docker compose down -v
 
   publish:
-    if: github.repository == 'skip'
-#    needs: build
+#    if: github.repository == 'skip'
+    needs: build
     name: Publish to Docker Hub
     runs-on: ubuntu-latest
     strategy:
@@ -241,7 +241,7 @@ jobs:
 
   deploy-helm-v2:
     name: Deploy HELM V2
-#    needs: [ publish ]
+    needs: [ publish ]
     runs-on: ubuntu-latest
 
     environment: production

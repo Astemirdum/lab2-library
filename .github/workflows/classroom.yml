@@ -188,9 +188,8 @@ jobs:
           push: true
           file: ${{ matrix.dockerfile }}
           tags: |
-            ${{ matrix.image }}:${{ github.sha }}
-            ${{ matrix.image }}:latest
-          secret-files: .env
+            ${{ matrix.image }}:v1.0
+#            ${{ matrix.image }}:${{ github.sha }}
 #          secrets: GIT_AUTH_TOKEN=${{ secrets.MYTOKEN }}
 
       - name: Install Helm
@@ -257,7 +256,7 @@ jobs:
 
       - name: Write out the kubeconfig info
         run: |
-          echo ${{ secrets.KUBE_CONFIG }} > ${{ env.KUBECONFIG }}
+          echo ${{ secrets.KUBE_CONFIG }} | base64 -d > ${{ env.KUBECONFIG }}
           chmod 0600 ${{ env.KUBECONFIG }}
 
       - name: Install deps
@@ -277,7 +276,7 @@ jobs:
         run: rm -f ${{ env.KUBECONFIG }}
 
   deploy-helm:
-#    if: github.repository == 'skip'
+    if: github.repository == 'skip'
     name: Deploy HELM
     needs: publish
 

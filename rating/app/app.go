@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Astemirdum/library-service/pkg/kafka"
+
 	"github.com/Astemirdum/library-service/pkg/logger"
 	"github.com/Astemirdum/library-service/pkg/postgres"
 	"github.com/Astemirdum/library-service/rating/config"
@@ -31,11 +33,11 @@ func Run(cfg *config.Config) {
 	}
 	svc := service.NewService(repo, log)
 
-	//consumer, err := kafka.NewConsumer(cfg.Kafka, kafka.RatingConsumerGroup)
-	//if err != nil {
-	//  log.Fatal("kafka.NewConsumer", zap.Error(err))
-	//}
-	// go kafka.Consume(consumer, handler.NewConsumer(svc.Rating, log), kafka.RatingTopic)
+	consumer, err := kafka.NewConsumer(cfg.Kafka, kafka.RatingConsumerGroup)
+	if err != nil {
+		log.Fatal("kafka.NewConsumer", zap.Error(err))
+	}
+	go kafka.Consume(consumer, handler.NewConsumer(svc.Rating, log), kafka.RatingTopic)
 
 	h := handler.New(svc, log)
 	srv := server.NewServer(cfg.Server, h.NewRouter())

@@ -4,15 +4,8 @@ ENV=.env
 
 HELM=helm/library-app
 NAMESPACE=default
-MY_RELEASE=lab5
+MY_RELEASE=rsoi
 
-
-.PHONY: helm-db-run
-helm-db-run:
-	helm upgrade --install ${MY_RELEASE} \
-		--set primary.initdb.scriptsConfigMap="postgresql-db-initdb-config" \
-		--set primary.persistence.size="100Mi" \
- 		oci://registry-1.docker.io/bitnamicharts/postgresql
 
 .PHONY: helm-run
 helm-run:
@@ -46,6 +39,13 @@ k-clean:
 helm-rollout:
 	helm rollback ${MY_RELEASE} --namespace ${NAMESPACE}
 
+
+.PHONY: helm-db-run
+helm-db-run:
+	helm upgrade --install ${MY_RELEASE} \
+		--set primary.initdb.scriptsConfigMap="postgresql-db-initdb-config" \
+		--set primary.persistence.size="100Mi" \
+ 		oci://registry-1.docker.io/bitnamicharts/postgresql
 
 .PHONY: run
 run:

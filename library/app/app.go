@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Astemirdum/library-service/pkg/kafka"
+
 	"github.com/Astemirdum/library-service/library/migrations"
 
 	"github.com/Astemirdum/library-service/library/config"
@@ -32,11 +34,11 @@ func Run(cfg *config.Config) {
 	}
 	svc := service.NewService(repo, log)
 
-	//consumer, err := kafka.NewConsumer(cfg.Kafka, kafka.LibraryConsumerGroup)
-	//if err != nil {
-	//	log.Fatal("kafka.NewConsumer", zap.Error(err))
-	//}
-	// go kafka.Consume(consumer, handler.NewConsumer(svc.AvailableCount, log), kafka.LibraryTopic)
+	consumer, err := kafka.NewConsumer(cfg.Kafka, kafka.LibraryConsumerGroup)
+	if err != nil {
+		log.Fatal("kafka.NewConsumer", zap.Error(err))
+	}
+	go kafka.Consume(consumer, handler.NewConsumer(svc.AvailableCount, log), kafka.LibraryTopic)
 
 	h := handler.New(svc, log)
 	srv := server.NewServer(cfg.Server, h.NewRouter())

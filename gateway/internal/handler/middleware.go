@@ -9,10 +9,6 @@ import (
 	"golang.org/x/time/rate"
 )
 
-func newRateLimiterMW(rps rate.Limit) echo.MiddlewareFunc {
-	return middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rps))
-}
-
 func requestLoggerConfig() middleware.RequestLoggerConfig {
 	cfg := logger.Log{LogLevel: zapcore.DebugLevel, Sink: ""}
 	log := logger.NewLogger(cfg, "echo")
@@ -40,4 +36,8 @@ func requestLoggerConfig() middleware.RequestLoggerConfig {
 		},
 	}
 	return c
+}
+
+func newRateLimiterMW(rps rate.Limit) echo.MiddlewareFunc {
+	return middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rps))
 }

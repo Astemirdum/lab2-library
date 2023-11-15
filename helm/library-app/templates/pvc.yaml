@@ -1,0 +1,17 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ .Values.gateway.persistence.claimName }}
+  namespace: {{ include "library-app.namespace" . }}
+spec:
+  storageClassName: {{ .Values.storageClass.name }}
+  accessModes:
+    - {{ .Values.gateway.pv.accessMode | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.gateway.persistence.claim | quote }}
+  volumeMode: {{ .Values.gateway.pv.volumeMode }}
+  volumeName: {{ .Values.gateway.pv.volumeName }}
+  {{- if .Values.gateway.persistence.dataSource }}
+  dataSource:
+  {{- end }}

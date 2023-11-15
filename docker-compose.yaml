@@ -7,7 +7,10 @@ services:
     image: ${GATEWAY_IMAGE_NAME}:${GATEWAY_IMAGE_TAG}
     restart: unless-stopped
     container_name: gateway
+#    depends_on:
+#      - redpanda
     environment:
+      - KAFKA_ADDRS=redpanda:9092
       - LIBRARY_HTTP_HOST=library
       - RESERVATION_HTTP_HOST=reservation
       - RATING_HTTP_HOST=rating
@@ -24,12 +27,14 @@ services:
     restart: unless-stopped
     container_name: library
     environment:
+      - KAFKA_ADDRS=redpanda:9092
       - DB_HOST=postgres
       - DB_NAME=libraries
     ports:
       - "${LIBRARY_HTTP_PORT}:${LIBRARY_HTTP_PORT}"
     depends_on:
       - postgres
+#      - redpanda
       - gateway
     networks:
       - library
@@ -60,12 +65,14 @@ services:
     restart: unless-stopped
     container_name: rating
     environment:
+      - KAFKA_ADDRS=redpanda:9092
       - DB_HOST=postgres
       - DB_NAME=ratings
     ports:
       - "${RATING_HTTP_PORT}:${RATING_HTTP_PORT}"
     depends_on:
       - postgres
+#      - redpanda
       - gateway
     networks:
       - library
@@ -86,8 +93,66 @@ services:
     networks:
       - library
 
+  redpanda:
+    container_name: redpanda
+    image: redpandadata/redpanda:v23.1.19
+    restart: unless-stopped
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    networks:
+      - library
+    command:
+      - redpanda
+      - start
+      - --smp
+      - "1"
+      - --reserve-memory
+      - 0M
+      - --overprovisioned
+      - --node-id
+      - "0"
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+#      - --advertise-kafka-addr #
+#      - PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092 #
+      - --advertise-kafka-addr
+      - PLAINTEXT://localhost:29092,OUTSIDE://redpanda:9092
+      - --pandaproxy-addr
+      - PLAINTEXT://0.0.0.0:28082,OUTSIDE://0.0.0.0:8082
+      - --advertise-pandaproxy-addr
+      - PLAINTEXT://redpanda:28082,OUTSIDE://localhost:8082
+    ports:
+      - "8081:8081"
+      - "8082:8082"
+      - "9092:9092"
+      - "28082:28082"
+      - "29092:29092"
+
+#  zookeeper:
+#    image: 'bitnami/zookeeper:latest'
+#    ports:
+#      - '2181:2181'
+#    environment:
+#      - ALLOW_ANONYMOUS_LOGIN=yes
+#    networks:
+#      - library
+#  kafka:
+#    image: 'bitnami/kafka:2.7.0'
+#    ports:
+#      - '9092:9092'
+#    depends_on:
+#      - zookeeper
+#    environment:
+#      - ALLOW_PLAINTEXT_LISTENER=yes
+#      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+#      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092
+#      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092
+#    networks:
+#      - library
+
 networks:
   library:
 
 volumes:
   db-data:
+  redpanda-data:

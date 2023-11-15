@@ -1,0 +1,114 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "library.fullname" . }}-deployment
+  labels:
+    helm.sh/chart: {{ include "library-app.chart" . }}
+    {{- include "library.selectorLabels" . | nindent 4}}
+  namespace: {{ include "library-app.namespace" . }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  replicas: {{ .Values.library.replicaCount | default 1}}
+  selector:
+    matchLabels:
+      {{- include "library.selectorLabels" . | nindent 6 }}
+  strategy:
+    {{- include "library-app.strategy" . | nindent 4 }}
+  template:
+    metadata:
+      {{- with .Values.app.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "library.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.app.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{/*      serviceAccountName: {{ include "library-app.serviceAccountName" . }}*/}}
+      securityContext:
+        {{- toYaml .Values.app.podSecurityContext | nindent 8 }}
+{{/*      priorityClassName: {{ .Values.library.priority.className }}*/}}
+      initContainers:
+        - name: {{ include "library.fullname" . }}-init
+          image: busybox:1.28
+          command: {{ include "app.pgWait" . }} # wait for db to be ready
+          env:
+            {{- include "app.env.pgHostPortDB" . | nindent 12 }}
+      containers:
+        - name: http-{{ include "library.fullname" . }}
+          securityContext:
+            {{- toYaml .Values.app.securityContext | nindent 12 }}
+          image: "{{ .Values.library.image.repository }}:{{ .Values.library.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.library.image.pullPolicy }}
+          env:
+            {{- include "app.env.pgHostPortDB" . | nindent 12 }}
+            - name: LOG_LEVEL
+              value: {{ .Values.configData.library.logLevel}}
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "library.fullname" . }}-config
+                  key: DB_NAME
+            - name: HTTP_READ
+              valueFrom:
+                configMapKeyRef:
+                  name:  {{ include "library.fullname" . }}-config
+                  key: HTTP_READ
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "library.fullname" . }}-secret
+                  key: db-pass
+            - name: MY_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: APP_NODENAME
+              value: "app@$(MY_POD_IP)"
+          {{- range $key, $val := .Values.library.envSecret }}
+            - name: {{ $key | quote }}
+              valueFrom:
+                secretKeyRef:
+                  key: {{ $key | lower | replace "_" "-" }}
+                  name: {{ $val }}
+              {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "library.fullname" . }}-config
+          ports:
+            - name: http
+              containerPort: {{ .Values.library.containerPort }}
+              protocol: TCP
+{{/*            - name: https*/}}
+{{/*              containerPort: {{ .Values.containerPorts.https }}*/}}
+
+          {{- include "library.health" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.library.resources | nindent 12 }}
+          volumeMounts:
+{{/*            - name: host-data*/}}
+{{/*              mountPath: /psp*/}}
+
+      restartPolicy: {{ .Values.library.restartPolicy }}
+      volumes:
+{{/*        - name: host-data*/}}
+{{/*          hostPath:*/}}
+{{/*            path: /psp*/}}
+      {{- with .Values.app.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.app.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.app.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

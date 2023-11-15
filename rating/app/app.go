@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Astemirdum/library-service/pkg/kafka"
+
 	"github.com/Astemirdum/library-service/pkg/logger"
 	"github.com/Astemirdum/library-service/pkg/postgres"
 	"github.com/Astemirdum/library-service/rating/config"
@@ -21,7 +23,7 @@ import (
 
 func Run(cfg *config.Config) {
 	log := logger.NewLogger(cfg.Log, "rating")
-	db, err := postgres.NewPostgresDB(&cfg.Database, migrations.MigrationFiles)
+	db, err := postgres.NewPostgresDB(context.Background(), &cfg.Database, migrations.MigrationFiles)
 	if err != nil {
 		log.Fatal("db init", zap.Error(err))
 	}
@@ -29,10 +31,15 @@ func Run(cfg *config.Config) {
 	if err != nil {
 		log.Fatal("repo users", zap.Error(err))
 	}
-	userService := service.NewService(repo, log)
+	svc := service.NewService(repo, log)
 
-	h := handler.New(userService, log)
+	consumer, err := kafka.NewConsumer(cfg.Kafka, kafka.RatingConsumerGroup)
+	if err != nil {
+		log.Fatal("kafka.NewConsumer", zap.Error(err))
+	}
+	go kafka.Consume(consumer, handler.NewConsumer(svc.Rating, log), kafka.RatingTopic)
 
+	h := handler.New(svc, log)
 	srv := server.NewServer(cfg.Server, h.NewRouter())
 	log.Info("http server start ON: ",
 		zap.String("addr",
@@ -55,8 +62,6 @@ func Run(cfg *config.Config) {
 	if err = srv.Stop(closeCtx); err != nil {
 		log.DPanic("srv.Stop", zap.Error(err))
 	}
-	if err = db.Close(); err != nil {
-		log.DPanic(" db.Close()", zap.Error(err))
-	}
+	db.Close()
 	log.Info("Graceful shutdown finished")
 }

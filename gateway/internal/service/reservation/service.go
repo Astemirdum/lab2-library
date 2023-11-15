@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Astemirdum/library-service/pkg/circuit_breaker"
+
 	"github.com/Astemirdum/library-service/gateway/internal/errs"
 
 	"github.com/Astemirdum/library-service/gateway/config"
@@ -22,6 +24,7 @@ type Service struct {
 	log    *zap.Logger
 	client *http.Client
 	cfg    config.ReservationHTTPServer
+	cb     circuit_breaker.CircuitBreaker
 }
 
 func NewService(log *zap.Logger, cfg config.Config) *Service { //nolint:gocritic
@@ -29,12 +32,17 @@ func NewService(log *zap.Logger, cfg config.Config) *Service { //nolint:gocritic
 		log:    log,
 		client: &http.Client{Timeout: time.Minute},
 		cfg:    cfg.ReservationHTTPServer,
+		cb:     circuit_breaker.New(100, time.Second, 0.2, 2),
 	}
 }
 
 const (
 	XUserName = "X-User-Name"
 )
+
+func (s *Service) CB() circuit_breaker.CircuitBreaker {
+	return s.cb
+}
 
 func (s *Service) GetReservation(ctx context.Context, username string) ([]model.GetReservation, int, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://%s/api/v1/reservations", net.JoinHostPort(s.cfg.Host, s.cfg.Port)), http.NoBody)
@@ -45,7 +53,7 @@ func (s *Service) GetReservation(ctx context.Context, username string) ([]model.
 	req.Header.Set("Content-Type", echo.MIMEApplicationJSONCharsetUTF8)
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return nil, http.StatusBadRequest, err
+		return nil, http.StatusServiceUnavailable, err
 	}
 	defer resp.Body.Close()
 
@@ -73,7 +81,7 @@ func (s *Service) CreateReservation(ctx context.Context, request model.CreateRes
 	req.Header.Set("Content-Type", echo.MIMEApplicationJSONCharsetUTF8)
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return model.Reservation{}, http.StatusBadRequest, err
+		return model.Reservation{}, http.StatusServiceUnavailable, err
 	}
 	defer resp.Body.Close()
 
@@ -85,6 +93,30 @@ func (s *Service) CreateReservation(ctx context.Context, request model.CreateRes
 		return model.Reservation{}, http.StatusBadRequest, err
 	}
 	return rsv, resp.StatusCode, nil
+}
+
+func (s *Service) RollbackReservation(ctx context.Context, uuid string) (int, error) {
+	b := bytes.NewBuffer(nil)
+	type request struct {
+		Uuid string `json:"uuid"`
+	}
+	if err := json.NewEncoder(b).Encode(request{Uuid: uuid}); err != nil {
+		return http.StatusBadRequest, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://%s/api/v1/reservations/rollback", net.JoinHostPort(s.cfg.Host, s.cfg.Port)), b)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+	req.Header.Set("Content-Type", echo.MIMEApplicationJSONCharsetUTF8)
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return http.StatusServiceUnavailable, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return resp.StatusCode, errs.ErrDefault
+	}
+	return resp.StatusCode, nil
 }
 
 func (s *Service) ReservationReturn(ctx context.Context, req model.ReservationReturnRequest, username, reservationUid string) (model.ReservationReturnResponse, int, error) {
@@ -100,7 +132,7 @@ func (s *Service) ReservationReturn(ctx context.Context, req model.ReservationRe
 	r.Header.Set(XUserName, username)
 	resp, err := s.client.Do(r)
 	if err != nil {
-		return model.ReservationReturnResponse{}, http.StatusBadRequest, err
+		return model.ReservationReturnResponse{}, http.StatusServiceUnavailable, err
 	}
 	defer resp.Body.Close()
 

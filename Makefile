@@ -1,5 +1,51 @@
+
 SERVICE_NAME=library
 ENV=.env
+
+HELM=helm/library-app
+NAMESPACE=default
+MY_RELEASE=rsoi
+
+
+.PHONY: helm-run
+helm-run:
+	helm upgrade ${MY_RELEASE}-app ${HELM} -f ${HELM}/values.yaml  --set setter=lol --set setter1=lol1 \
+		--install \
+		--namespace ${NAMESPACE} \
+        --create-namespace \
+        --atomic \
+        --timeout 120s \
+        --debug
+
+.PHONY: helm-uninstall
+helm-uninstall:
+	helm uninstall ${MY_RELEASE} --namespace ${NAMESPACE}
+
+
+.PHONY: helm-template
+helm-template:
+	helm template ${MY_RELEASE} ${HELM} --debug
+
+
+.PHONY: helm-upgrade
+helm-upgrade:
+	helm upgrade ${MY_RELEASE} ${HELM} --namespace ${NAMESPACE}
+
+.PHONY: k-clean
+k-clean:
+	kubectl delete sc,pvc,pv,cm,ing,secret,svc,all --all -n ${NAMESPACE}
+
+.PHONY: helm-rollout
+helm-rollout:
+	helm rollback ${MY_RELEASE} --namespace ${NAMESPACE}
+
+
+.PHONY: helm-db-run
+helm-db-run:
+	helm upgrade --install ${MY_RELEASE} \
+		--set primary.initdb.scriptsConfigMap="postgresql-db-initdb-config" \
+		--set primary.persistence.size="100Mi" \
+ 		oci://registry-1.docker.io/bitnamicharts/postgresql
 
 .PHONY: run
 run:

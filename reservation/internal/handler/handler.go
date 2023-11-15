@@ -61,6 +61,7 @@ func (h *Handler) NewRouter() *echo.Echo {
 	api.GET("/reservations", h.GetReservations)
 	api.POST("/reservations", h.CreateReservation)
 	api.POST("/reservations/:reservationUid/return", h.ReservationsReturn)
+	api.POST("/reservations/rollback", h.RollbackReservation)
 
 	return e
 }
@@ -133,4 +134,19 @@ func (h *Handler) ReservationsReturn(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return c.JSON(http.StatusOK, resp)
+}
+
+func (h *Handler) RollbackReservation(c echo.Context) error {
+	ctx := c.Request().Context()
+	type req struct {
+		Uuid string `json:"uuid"`
+	}
+	var r req
+	if err := c.Bind(&r); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if err := h.reservationSvc.RollbackReservation(ctx, r.Uuid); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.NoContent(http.StatusOK)
 }

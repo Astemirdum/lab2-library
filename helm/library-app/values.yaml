@@ -1,0 +1,340 @@
+# Default values for library-app.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+namespace: "default"
+
+configData:
+  gateway:
+    http:
+      host: 0.0.0.0
+      port: 8080
+      read: 20s
+    logLevel: debug
+    services:
+      libraryHost: "library-svc"
+      reservationHost: "reservation-svc"
+      ratingHost: "rating-svc"
+
+  library:
+    http:
+      host: "0.0.0.0"
+      port: "8060"
+      read: "20s"
+    logLevel: debug
+    dbName: libraries
+
+  reservation:
+    http:
+      host: "0.0.0.0"
+      port: "8070"
+      read: "20s"
+    logLevel: debug
+    dbName: reservations
+
+  rating:
+    http:
+      host: "0.0.0.0"
+      port: "8050"
+      read: "20s"
+    logLevel: debug
+    dbName: ratings
+
+  db:
+    host: "postgresql-db-ip"
+    port: "5432"
+    user: "postgres"
+    name: "postgres"
+    data: "/data/pgdata"
+
+
+
+storageClass:
+  name: local-storage
+  volumeBindingMode: WaitForFirstConsumer
+
+app:
+  affinity: { }
+  tolerations: [ ]
+  nodeSelector: { }
+  podAnnotations: { }
+  imagePullSecrets: [ ]
+  podSecurityContext: { }
+  securityContext: { }
+  strategy:
+    rollingUpdate:
+      maxSurge: 1 # 50%
+      maxUnavailable: 1
+    type: RollingUpdate
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 90
+    targetMemoryUtilizationPercentage: 90
+    packetsPerSecond: ""
+  initdbPvPvc:
+    enabled: false
+
+gateway:
+  affinity: { }
+  tolerations: [ ]
+  nodeSelector: { }
+  podAnnotations: {}
+  imagePullSecrets: [ ]
+  podSecurityContext: { }
+  securityContext: { }
+  replicaCount: 1
+  image:
+    hostname: docker.io
+    repository: astdockerid1/gateway
+    tag: "v1.0"
+    pullPolicy: Always
+
+  name: "gateway"
+  fullname: "gateway"
+
+  persistence:
+    enabled: false
+    claimName: fileshare
+    claim: 30Mi
+    dataSource: { }
+  pv:
+    accessMode: ReadWriteMany
+    volumeMode: Filesystem
+    volumeName: mini-pv1
+    capacity: 50Mi
+    reclaimPolicy: Retain
+    dataSource: { }
+    path: /local/pv1
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 100Mi
+    limits:
+      cpu: 100m
+      memory: 200Mi
+
+  service:
+    type: ClusterIP
+    port: 80
+  containerPort: 8080
+  portName: http
+
+  restartPolicy: Always
+  priority:
+    className: high-priority
+    value: 10000
+  terminationGracePeriodSeconds: 60
+  auth0:
+    domain: 'dev-417yilvxdfygetpk.us.auth0.com'
+    audience: 'https://dev-417yilvxdfygetpk.us.auth0.com/api/v2/'
+
+library:
+  replicaCount: 1
+  image:
+    hostname: docker.io
+    repository: astdockerid1/library
+    tag: "v1.0"
+    pullPolicy: Always
+
+  name: "library"
+  fullname: "library"
+
+  resources:
+    requests:
+      cpu: 30m
+      memory: 50Mi
+    limits:
+      cpu: 50m
+      memory: 100Mi
+
+  service:
+    type: ClusterIP
+    port: 8060
+  containerPort: 8060
+  portName: http
+
+  restartPolicy: Always
+  strategy:
+    rollingUpdate:
+      maxSurge: 1 # 50%
+      maxUnavailable: 1
+    type: RollingUpdate
+  priority:
+    className: high-priority
+    value: 9000
+  terminationGracePeriodSeconds: 60
+
+reservation:
+  replicaCount: 1
+  image:
+    hostname: docker.io
+    repository: astdockerid1/reservation
+    tag: "v1.0"
+    pullPolicy: Always
+
+  name: "reservation"
+  fullname: "reservation"
+
+  resources:
+    requests:
+      cpu: 30m
+      memory: 50Mi
+    limits:
+      cpu: 50m
+      memory: 100Mi
+
+  service:
+    type: ClusterIP
+    port: 8070
+  containerPort: 8070
+  portName: http
+
+  restartPolicy: Always
+  strategy:
+    rollingUpdate:
+      maxSurge: 1 # 50%
+      maxUnavailable: 1
+    type: RollingUpdate
+  priority:
+    className: high-priority
+    value: 9000
+  terminationGracePeriodSeconds: 60
+
+rating:
+  replicaCount: 1
+  image:
+    hostname: docker.io
+    repository: astdockerid1/rating
+    tag: "v1.0"
+    pullPolicy: Always
+
+  name: "rating"
+  fullname: "rating"
+
+  resources:
+    requests:
+      cpu: 30m
+      memory: 50Mi
+    limits:
+      cpu: 50m
+      memory: 100Mi
+
+  service:
+    type: ClusterIP
+    port: 8050
+  containerPort: 8050
+  portName: http
+
+  restartPolicy: Always
+  strategy:
+    rollingUpdate:
+      maxSurge: 1 # 50%
+      maxUnavailable: 1
+    type: RollingUpdate
+  priority:
+    className: high-priority
+    value: 9000
+  terminationGracePeriodSeconds: 60
+
+db:
+  enabled: true
+  nodeSelector: {}
+  podAnnotations: { }
+  imagePullSecrets: [ ]
+  podSecurityContext: { }
+  containerSecurityContext:
+    securityContext: { }
+    enabled: false
+
+  autoscaling:
+    enabled: false
+  replicaCount: 1
+  name: "postgresql-db"
+  image:
+    hostname: docker.io
+    repository: postgres
+    tag: "15.2-alpine"
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 800m
+      memory: 1024Mi
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdatePartition: 0
+    maxUnavailable: 1
+  namespace: default
+  secret:
+    pass: postgres
+  affinity: { }
+  tolerations: [ ]
+  terminationGracePeriodSeconds: 60
+  containerPort: 5432
+  portName: postgresql
+  probeEnabled: true
+  job:
+    enabled: false
+  service:
+    ip:
+      enabled: true
+      type: ClusterIP
+      port: 5432
+    lb:
+      enabled: false
+      type: LoadBalancer
+      port: 5432
+    np:
+      enabled: false
+      type: NodePort
+      port: 5432
+      nodePort: 32761
+  priority:
+    enabled: false
+    className: db-priority
+    value: 10001
+
+  persistence:
+    enabled: false #true
+    claimName: #"pg-data"
+    claim: 100Mi
+
+    accessModes: ["ReadWriteOnce"] #"ReadWriteOnce"
+    size: 100Mi
+    subPath:
+
+
+
+
+ingress:
+  enabled: true
+  className: ""
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+  hosts:
+    - host: lolkek.com #minikubeip
+      paths:
+        - path: /* # /api/v1/*
+          pathType: Prefix
+          serviceName: gateway-svc
+          servicePort: 80
+
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+#priorityClassName: high-priority
+
+setter: lol
+setter1: lol1
+
+skaffold: false

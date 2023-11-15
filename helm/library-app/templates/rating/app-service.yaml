@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rating.fullname" . }}-svc
+  labels:
+    helm.sh/chart: {{ include "library-app.chart" . }}
+    {{- include "rating.selectorLabels" . |  nindent 4}}
+  namespace: {{ include "library-app.namespace" . }}
+spec:
+  type: {{ .Values.rating.service.type }}
+  ports:
+    - port: {{ .Values.rating.service.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "rating.selectorLabels" . | nindent 4 }}

@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Astemirdum/library-service/pkg/circuit_breaker"
+
 	"github.com/Astemirdum/library-service/gateway/internal/errs"
 
 	"github.com/Astemirdum/library-service/gateway/config"
@@ -23,6 +25,7 @@ type Service struct {
 	log    *zap.Logger
 	client *http.Client
 	cfg    config.LibraryHTTPServer
+	cb     circuit_breaker.CircuitBreaker
 }
 
 func NewService(log *zap.Logger, cfg config.Config) *Service {
@@ -30,7 +33,12 @@ func NewService(log *zap.Logger, cfg config.Config) *Service {
 		log:    log,
 		client: &http.Client{Timeout: time.Minute},
 		cfg:    cfg.LibraryHTTPServer,
+		cb:     circuit_breaker.New(100, time.Second, 0.2, 2),
 	}
+}
+
+func (s *Service) CB() circuit_breaker.CircuitBreaker {
+	return s.cb
 }
 
 func (s *Service) GetBook(ctx context.Context, libUid, bookUid string) (model.GetBook, int, error) {
@@ -44,7 +52,7 @@ func (s *Service) GetBook(ctx context.Context, libUid, bookUid string) (model.Ge
 	}
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return model.GetBook{}, http.StatusBadRequest, err
+		return model.GetBook{}, http.StatusServiceUnavailable, err
 	}
 	defer resp.Body.Close()
 	var book model.GetBook
@@ -57,18 +65,9 @@ func (s *Service) GetBook(ctx context.Context, libUid, bookUid string) (model.Ge
 	return book, resp.StatusCode, err
 }
 
-func (s *Service) AvailableCount(ctx context.Context, libraryID, bookID int, isReturn bool) (status int, err error) {
+func (s *Service) AvailableCount(ctx context.Context, inp model.AvailableCountRequest) (status int, err error) {
 	b := bytes.NewBuffer(nil)
-	type Req struct {
-		LibraryID int  `json:"libraryID"`
-		BookID    int  `json:"bookID"`
-		IsReturn  bool `json:"isReturn"`
-	}
-	if err := json.NewEncoder(b).Encode(Req{
-		LibraryID: libraryID,
-		BookID:    bookID,
-		IsReturn:  isReturn,
-	}); err != nil {
+	if err := json.NewEncoder(b).Encode(inp); err != nil {
 		return http.StatusBadRequest, err
 	}
 	req, err := http.NewRequestWithContext(
@@ -82,7 +81,7 @@ func (s *Service) AvailableCount(ctx context.Context, libraryID, bookID int, isR
 	req.Header.Set("Content-Type", echo.MIMEApplicationJSONCharsetUTF8)
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return http.StatusBadRequest, err
+		return http.StatusServiceUnavailable, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
@@ -102,7 +101,7 @@ func (s *Service) GetLibrary(ctx context.Context, libUid string) (model.GetLibra
 	}
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return model.GetLibrary{}, http.StatusBadRequest, err
+		return model.GetLibrary{}, http.StatusServiceUnavailable, err
 	}
 	defer resp.Body.Close()
 	var lib model.GetLibrary
@@ -134,7 +133,7 @@ func (s *Service) proxy(c echo.Context) (data []byte, statusCode int, err error)
 	req.Header = c.Request().Header.Clone()
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return nil, http.StatusBadRequest, err
+		return nil, http.StatusServiceUnavailable, err
 	}
 	defer resp.Body.Close()
 

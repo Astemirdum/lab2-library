@@ -3,9 +3,16 @@ on:
   push:
     branches:
       - master
+      - lab5
   pull_request:
     branches:
       - master
+      - lab5
+
+env:
+  HELM_NAME: library-app
+  HELM_VERSION: 0.1.0
+  REGISTRY: oci://registry-1.docker.io/astdockerid1
 
 jobs:
   build:
@@ -61,7 +68,7 @@ jobs:
           path: coverage.html
 
   test:
-#    if: github.repository == 'skip'
+    if: github.repository == 'skip'
     needs: build
     name: Integration Test
     runs-on: ubuntu-latest
@@ -69,8 +76,6 @@ jobs:
     steps:
       - name: Code
         uses: actions/checkout@v3
-
-#      - uses: docker/setup-buildx-action@v3
 
       - name: Run containers
         timeout-minutes: 10
@@ -81,11 +86,21 @@ jobs:
         env:
           WAIT_PORTS: 8080,8070,8060,8050
 
+#      - name: Run API Tests
+#        timeout-minutes: 5
+#        run: |
+#          chmod +x scripts/test-script.sh
+#          bash scripts/test-script.sh
+#        env:
+#          VARIANT: v4
+#          SERVICE_NAME: rating
+#          PORT_NUMBER: 8050
+
       - name: Run API Tests
         uses: matt-ball/newman-action@master
         with:
-          collection:  postman/collection.json
-          environment: postman/environment.json
+          collection: v4/postman/collection.json
+          environment: v4/postman/environment.json
           delayRequest: 100
           reporters: '[ "cli" ]'
 
@@ -99,7 +114,7 @@ jobs:
         with:
           google_token: ${{secrets.GOOGLE_API_KEY}}
           sheet_id: "1xkgjUX6Qmk7rdJG-QPOToav-HWWtthJjnShIKnw3oIY"
-          homework_number: 2
+          homework_number: 4
           user_column: 'D'
           column_offset: 'F'
           mark: "'+"
@@ -111,13 +126,20 @@ jobs:
 
   publish:
 #    if: github.repository == 'skip'
-    needs: test
+    needs: build
     name: Publish to Docker Hub
     runs-on: ubuntu-latest
-    env:
-#      IMAGE_NAME:
-#      IMAGE_TAG:
-      COMMIT_HASH: ${{ github.sha }}
+    strategy:
+      matrix:
+        include:
+          - dockerfile: docker/gateway.Dockerfile
+            image: astdockerid1/gateway
+          - dockerfile: docker/rating.Dockerfile
+            image: astdockerid1/rating
+          - dockerfile: docker/library.Dockerfile
+            image: astdockerid1/library
+          - dockerfile: docker/reservation.Dockerfile
+            image: astdockerid1/reservation
     steps:
       - name: Code
         uses: actions/checkout@v3
@@ -125,28 +147,42 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
-    #  - name: Set env version
-    #    run: echo "IMAGE_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
-
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-      - name: Build images
-        timeout-minutes: 10
-        run: docker compose -f ./docker-compose.yaml --env-file .env build
+#      - name: Build images
+#        timeout-minutes: 10
+#        run: docker compose -f ./docker-compose.yaml --env-file .env build
+#      - name: Push images
+#        run: docker compose -f ./docker-compose.yaml --env-file .env push
 
-      - name: Push images
-        run: docker compose -f ./docker-compose.yaml --env-file .env push
+      - name: "Build&Publish images"
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          file: ${{ matrix.dockerfile }}
+          tags: |
+            ${{ matrix.image }}:v1.0
+#            ${{ matrix.image }}:${{ github.sha }}
+#          secrets: GIT_AUTH_TOKEN=${{ secrets.MYTOKEN }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+
+      - name: Push helm charts
+        run: |
+          helm package helm/${{ env.HELM_NAME }}
+          helm push ${{ env.HELM_NAME }}-${{ env.HELM_VERSION }}.tgz ${{ env.REGISTRY }}
 
   deploy:
-    #    if: github.repository == 'skip'
-    #    if: ${{ github.event.workflow_run.publish == 'success' }}
+    if: github.repository == 'skip'
+    name: Deploy Compose
     runs-on: ubuntu-latest
     needs: publish
-    # if: always() # success()
+
     environment: production
     concurrency: production
 
@@ -176,6 +212,139 @@ jobs:
             docker compose -f ./docker-compose.yaml --env-file .env pull
             docker compose -f ./docker-compose.yaml --env-file .env down --volumes || echo 'no compose'
             docker compose -f ./docker-compose.yaml --env-file .env up -d
+
+
+  deploy-helm-v2:
+    if: github.repository == 'skip'
+    name: Deploy HELM V2
+    needs: [ publish ]
+    runs-on: ubuntu-latest
+
+    environment: production
+    concurrency: production
+    env:
+      KUBECONFIG: /tmp/config
+      HELM: helm/library-app
+      NAMESPACE: default
+      MY_RELEASE: lab5
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Write out the kubeconfig info
+        run: |
+          echo ${{ secrets.KUBE_CONFIG }} | base64 -d > ${{ env.KUBECONFIG }}
+          chmod 0600 ${{ env.KUBECONFIG }}
+
+      - name: Install deps
+        run: curl -sSL https://hub.mcs.mail.ru/repository/client-keystone-auth/latest/linux/client-install.sh | bash
+
+      - name: Lint Helm
+        run: |
+          helm lint ${{ env.HELM }}
+
+      - name: Deploy API
+        run: |
+          source ~/vk-cloud-solutions/path.bash.inc
+          helm upgrade ${{ env.MY_RELEASE }} ${{ env.HELM }} --install --wait --atomic --namespace=${{ env.NAMESPACE }} --values=${{ env.HELM }}/values.yaml --timeout 120s --debug
+
+      - name: Cleanup kubeconfig info
+        if: success() || failure()
+        run: rm -f ${{ env.KUBECONFIG }}
+
+  deploy-helm:
+    if: github.repository == 'skip'
+    name: Deploy HELM
+    needs: publish
+
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency: production
+
+    env:
+      WORK_DIR: ~/app
+      NAMESPACE: default
+      MY_RELEASE: lab5
+    steps:
+      - name: Code
+        uses: actions/checkout@v3
+
+      - name: Transfer prepare-cluster
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "scripts/prepare-cluster.sh"
+          target: "/${{ secrets.SSH_USER }}"
+
+      - name: run helm
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+            helm pull ${{ env.REGISTRY }}/${{ env.HELM_NAME }} --version ${{ env.HELM_VERSION }} --untar
+            helm upgrade --install ${{ env.MY_RELEASE }} ${{ env.HELM_NAME }} -f ${{ env.HELM_NAME }}/values.yaml  \
+              --namespace ${{ env.NAMESPACE }} \
+              --create-namespace \
+              --atomic \
+              --timeout 120s \
+              --debug
+            sleep 100
+            kubectl port-forward svc/gateway-svc 80:80 &> /dev/null &
+
+      - name: wait
+        timeout-minutes: 10
+        run: |
+          chmod +x scripts/wait-script.sh
+          bash scripts/wait-script.sh
+          sleep 50
+        env:
+          WAIT_PORTS: 80
+          HOST: ${{ secrets.SSH_HOST }}
+
+  autograde:
+    #    if: github.repository == 'skip'
+    name: Autograde
+    needs:
+#      - deploy-helm
+      - deploy-helm-v2
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Update /etc/hosts
+        run: sudo echo "${{ secrets.SSH_HOST }} lolkek.com" | sudo tee -a /etc/hosts
+
+      - name: wait
+        run: sleep 100
+
+      - name: Run API Tests
+        uses: matt-ball/newman-action@master
+        with:
+          collection: v4/postman/collection.json
+          environment: v4/postman/environment.json
+          delayRequest: 100
+          reporters: '[ "cli" ]'
+          envVar: '[{ "key": "serviceUrl", "value": "http://lolkek.com" },{ "key": "identityProviderUrl", "value": "https://dev-417yilvxdfygetpk.us.auth0.com" },{ "key": "audience", "value": "https://dev-417yilvxdfygetpk.us.auth0.com/api/v2/" },{ "key": "clientId", "value": "${{ secrets.AUTH0_CLIENT_ID }}" },{ "key": "clientSecret", "value": "${{ secrets.AUTH0_CLIENT_SECRET }}" }]'
+
+      - uses: education/autograding@v1
+        id: autograder
+        continue-on-error: true
+
+      - name: Github auto grader mark
+        continue-on-error: true
+        uses: Romanow/google-sheet-autograder-marker@v1.0
+        with:
+          google_token: ${{secrets.GOOGLE_API_KEY}}
+          sheet_id: "1xkgjUX6Qmk7rdJG-QPOToav-HWWtthJjnShIKnw3oIY"
+          homework_number: 4
+          user_column: 'D'
+          column_offset: 'F'
+          mark: "'+"
 
   deploy-render:
     if: github.repository == 'skip'

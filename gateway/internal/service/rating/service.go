@@ -7,6 +7,11 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"time"
+
+	"github.com/pkg/errors"
+
+	"github.com/Astemirdum/library-service/pkg/circuit_breaker"
 
 	"github.com/labstack/echo/v4"
 
@@ -22,6 +27,7 @@ type Service struct {
 	log    *zap.Logger
 	client *http.Client
 	cfg    config.RatingHTTPServer
+	cb     circuit_breaker.CircuitBreaker
 }
 
 func NewService(log *zap.Logger, cfg config.Config) *Service {
@@ -29,7 +35,12 @@ func NewService(log *zap.Logger, cfg config.Config) *Service {
 		log:    log,
 		client: &http.Client{},
 		cfg:    cfg.RatingHTTPServer,
+		cb:     circuit_breaker.New(100, time.Second, 0.2, 2),
 	}
+}
+
+func (s *Service) CB() circuit_breaker.CircuitBreaker {
+	return s.cb
 }
 
 func (s *Service) GetRating(ctx context.Context, userName string) (model.Rating, int, error) {
@@ -40,7 +51,7 @@ func (s *Service) GetRating(ctx context.Context, userName string) (model.Rating,
 	req.Header.Set("X-User-Name", userName)
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return model.Rating{}, http.StatusBadRequest, err
+		return model.Rating{}, http.StatusServiceUnavailable, errors.New("Bonus Service unavailable")
 	}
 	defer resp.Body.Close()
 
@@ -74,7 +85,7 @@ func (s *Service) Rating(ctx context.Context, userName string, stars int) (int, 
 	req.Header.Set("Content-Type", echo.MIMEApplicationJSON)
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return http.StatusBadRequest, err
+		return http.StatusServiceUnavailable, err
 	}
 	defer resp.Body.Close()
 

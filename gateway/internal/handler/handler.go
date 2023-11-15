@@ -3,8 +3,12 @@ package handler
 import (
 	"net/http"
 
+	"github.com/Astemirdum/library-service/pkg/auth0"
+
+	"github.com/Astemirdum/library-service/pkg/kafka"
+	"github.com/IBM/sarama"
+
 	"github.com/Astemirdum/library-service/gateway/config"
-	"github.com/Astemirdum/library-service/gateway/internal/errs"
 	"github.com/Astemirdum/library-service/gateway/internal/model"
 	"github.com/Astemirdum/library-service/gateway/internal/service/library"
 	"github.com/Astemirdum/library-service/gateway/internal/service/rating"
@@ -22,22 +26,22 @@ type Handler struct {
 	librarySvc     LibraryService
 	ratingSvc      RatingService
 	reservationSvc ReservationService
-	// client         *http.Client
-	log *zap.Logger
+	enqueuer       Enqueuer
+	log            *zap.Logger
 }
 
-func New(log *zap.Logger, cfg config.Config) *Handler {
+func New(log *zap.Logger, cfg config.Config, producer sarama.SyncProducer) *Handler {
 	h := &Handler{
 		librarySvc:     library.NewService(log, cfg),
 		ratingSvc:      rating.NewService(log, cfg),
 		reservationSvc: reservation.NewService(log, cfg),
-		// client:         &http.Client{Timeout: time.Minute},
-		log: log,
+		enqueuer:       NewEnqueuer(producer),
+		log:            log,
 	}
 	return h
 }
 
-func (h *Handler) NewRouter() *echo.Echo {
+func (h *Handler) NewRouter(auth0Cfg auth0.Config) *echo.Echo {
 	e := echo.New()
 	const (
 		baseRPS = 10
@@ -58,11 +62,15 @@ func (h *Handler) NewRouter() *echo.Echo {
 	base.GET("/swagger/*", echoSwagger.WrapHandler)
 
 	e.Validator = validate.NewCustomValidator()
+
 	api := e.Group("/api/v1",
 		middleware.RequestLoggerWithConfig(requestLoggerConfig()),
 		middleware.RequestID(),
 		newRateLimiterMW(apiRPS),
 	)
+	api.GET("/authorize", h.Authorize)
+	api.GET("/callback", h.Callback)
+	api = api.Group("", auth0.MiddleWareWithConfig(auth0Cfg))
 
 	api.GET("/rating", h.GetRating)
 
@@ -80,41 +88,63 @@ func (h *Handler) Health(c echo.Context) error {
 	return c.String(http.StatusOK, "OK")
 }
 
-const (
-	XUserName = "X-User-Name"
-)
+func (h *Handler) Authorize(c echo.Context) error {
+	return c.String(http.StatusOK, "OK")
+}
+
+func (h *Handler) Callback(c echo.Context) error {
+	return c.String(http.StatusOK, "OK")
+}
 
 func (h *Handler) GetReservations(c echo.Context) error {
-	userName := c.Request().Header.Get(XUserName)
-	if userName == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, errs.ErrUserName)
+	userName, err := auth0.ExtractUserName(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 	ctx := c.Request().Context()
-	reserves, code, err := h.reservationSvc.GetReservation(ctx, userName)
-	if err != nil {
-		return echo.NewHTTPError(code, err.Error())
+
+	var reserves []model.GetReservation
+	if err := h.reservationSvc.CB().Call(func() error {
+		list, code, err := h.reservationSvc.GetReservation(ctx, userName)
+		if err != nil {
+			return echo.NewHTTPError(code, err.Error())
+		}
+		reserves = list
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	gg, ctx := errgroup.WithContext(ctx)
 	libs := make([]model.Library, 0, len(reserves))
 	gg.Go(func() error {
 		for _, reserve := range reserves {
-			lib, code, err := h.librarySvc.GetLibrary(ctx, reserve.LibraryUid)
-			if err != nil {
-				return echo.NewHTTPError(code, err.Error())
+			if err := h.librarySvc.CB().Call(func() error {
+				lib, code, err := h.librarySvc.GetLibrary(ctx, reserve.LibraryUid)
+				if err != nil {
+					return echo.NewHTTPError(code, err.Error())
+				}
+				libs = append(libs, lib.Library)
+				return nil
+			}); err != nil {
+				return err
 			}
-			libs = append(libs, lib.Library)
 		}
 		return nil
 	})
 	books := make([]model.Book, 0, len(reserves))
 	gg.Go(func() error {
 		for _, reserve := range reserves {
-			book, code, err := h.librarySvc.GetBook(ctx, reserve.LibraryUid, reserve.BookUid)
-			if err != nil {
-				return echo.NewHTTPError(code, err.Error())
+			if err := h.librarySvc.CB().Call(func() error {
+				book, code, err := h.librarySvc.GetBook(ctx, reserve.LibraryUid, reserve.BookUid)
+				if err != nil {
+					return echo.NewHTTPError(code, err.Error())
+				}
+				books = append(books, book.Book)
+				return nil
+			}); err != nil {
+				return err
 			}
-			books = append(books, book.Book)
 		}
 		return nil
 	})
@@ -144,11 +174,16 @@ func getReservationResponse(reserves []model.GetReservation, books []model.Book,
 }
 
 func (h *Handler) CreateReservation(c echo.Context) error {
+	userName, err := auth0.ExtractUserName(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	}
 	var createReservationRequest model.CreateReservationRequest
 	if err := c.Bind(&createReservationRequest); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	createReservationRequest.UserName = c.Request().Header.Get(XUserName)
+
+	createReservationRequest.UserName = userName
 	if err := c.Validate(createReservationRequest); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
@@ -158,31 +193,36 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 		book model.GetBook
 		rat  model.Rating
 		code int
-		err  error
 	)
 	gg, ctxCancel := errgroup.WithContext(ctx)
 	gg.Go(func() error {
-		lib, code, err = h.librarySvc.GetLibrary(ctxCancel, createReservationRequest.LibraryUid)
-		if err != nil {
-			return echo.NewHTTPError(code, err.Error())
-		}
-		return nil
+		return h.librarySvc.CB().Call(func() error {
+			lib, code, err = h.librarySvc.GetLibrary(ctxCancel, createReservationRequest.LibraryUid)
+			if err != nil {
+				return echo.NewHTTPError(code, err.Error())
+			}
+			return nil
+		})
 	})
 
 	gg.Go(func() error {
-		book, code, err = h.librarySvc.GetBook(ctxCancel, createReservationRequest.LibraryUid, createReservationRequest.BookUid)
-		if err != nil {
-			return echo.NewHTTPError(code, err.Error())
-		}
-		return nil
+		return h.librarySvc.CB().Call(func() error {
+			book, code, err = h.librarySvc.GetBook(ctxCancel, createReservationRequest.LibraryUid, createReservationRequest.BookUid)
+			if err != nil {
+				return echo.NewHTTPError(code, err.Error())
+			}
+			return nil
+		})
 	})
 
 	gg.Go(func() error {
-		rat, code, err = h.ratingSvc.GetRating(ctxCancel, createReservationRequest.UserName)
-		if err != nil {
-			return echo.NewHTTPError(code, err.Error())
-		}
-		return nil
+		return h.ratingSvc.CB().Call(func() error {
+			rat, code, err = h.ratingSvc.GetRating(ctxCancel, createReservationRequest.UserName)
+			if err != nil {
+				return echo.NewHTTPError(code, err.Error())
+			}
+			return nil
+		})
 	})
 
 	if err := gg.Wait(); err != nil {
@@ -194,7 +234,14 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 		return echo.NewHTTPError(code, err.Error())
 	}
 
-	if code, err := h.librarySvc.AvailableCount(ctx, lib.ID, book.ID, false); err != nil {
+	if code, err := h.librarySvc.AvailableCount(ctx, model.AvailableCountRequest{
+		LibraryID: lib.ID,
+		BookID:    book.ID,
+		IsReturn:  false,
+	}); err != nil {
+		if _, err := h.reservationSvc.RollbackReservation(ctx, rsv.ReservationUid); err != nil {
+			h.log.Warn("RollbackReservation")
+		}
 		return echo.NewHTTPError(code, err.Error())
 	}
 
@@ -211,9 +258,9 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 
 func (h *Handler) ReservationReturn(c echo.Context) error {
 	ctx := c.Request().Context()
-	username := c.Request().Header.Get(XUserName)
-	if username == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, errs.ErrUserName)
+	userName, err := auth0.ExtractUserName(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 	reservationUid := c.Param("reservationUid")
 	var req model.ReservationReturnRequest
@@ -223,7 +270,7 @@ func (h *Handler) ReservationReturn(c echo.Context) error {
 	if err := c.Validate(req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	res, code, err := h.reservationSvc.ReservationReturn(ctx, req, username, reservationUid)
+	res, code, err := h.reservationSvc.ReservationReturn(ctx, req, userName, reservationUid)
 	if err != nil {
 		return echo.NewHTTPError(code, err.Error())
 	}
@@ -233,59 +280,123 @@ func (h *Handler) ReservationReturn(c echo.Context) error {
 	)
 	gg, ctxCancel := errgroup.WithContext(ctx)
 	gg.Go(func() error {
-		lib, code, err = h.librarySvc.GetLibrary(ctxCancel, res.LibraryUid)
-		if err != nil {
-			return echo.NewHTTPError(code, err.Error())
-		}
-		return nil
+		return h.librarySvc.CB().Call(func() error {
+			lib, code, err = h.librarySvc.GetLibrary(ctxCancel, res.LibraryUid)
+			if err != nil {
+				return echo.NewHTTPError(code, err.Error())
+			}
+			return nil
+		})
 	})
 
 	gg.Go(func() error {
-		book, code, err = h.librarySvc.GetBook(ctxCancel, res.LibraryUid, res.BookUid)
-		if err != nil {
-			return echo.NewHTTPError(code, err.Error())
-		}
-		return nil
+		return h.librarySvc.CB().Call(func() error {
+			book, code, err = h.librarySvc.GetBook(ctxCancel, res.LibraryUid, res.BookUid)
+			if err != nil {
+				return echo.NewHTTPError(code, err.Error())
+			}
+			return nil
+		})
 	})
 	if err := gg.Wait(); err != nil {
 		return err
 	}
 
-	if code, err := h.librarySvc.AvailableCount(ctx, lib.ID, book.ID, true); err != nil {
-		return echo.NewHTTPError(code, err.Error())
+	availableCountReq := model.AvailableCountRequest{
+		LibraryID: lib.ID,
+		BookID:    book.ID,
+		IsReturn:  true,
+	}
+	if code, err := h.librarySvc.AvailableCount(ctx, availableCountReq); err != nil {
+		if code == http.StatusServiceUnavailable {
+			if err := h.enqueuer.Enqueue(kafka.LibraryTopic, availableCountReq); err != nil {
+				h.log.Warn("AvailableCount h.enqueuer.Enqueue()", zap.Error(err))
+			}
+		} else {
+			return echo.NewHTTPError(code, err.Error())
+		}
 	}
 
 	stars := 1
 	if book.Condition != req.Condition {
 		stars = -10
 	}
-	if code, err := h.ratingSvc.Rating(ctx, username, stars); err != nil {
-		return echo.NewHTTPError(code, err.Error())
+
+	if code, err := h.ratingSvc.Rating(ctx, userName, stars); err != nil {
+		if code == http.StatusServiceUnavailable {
+			ratingMsg := model.RatingMsg{
+				Name:  userName,
+				Stars: stars,
+			}
+			//h.enqueuer.EnqueueV2(ctx, h.ratingSvc.Rating, ratingMsg)
+			if err := h.enqueuer.Enqueue(kafka.RatingTopic, ratingMsg); err != nil {
+				h.log.Warn("Rating h.enqueuer.Enqueue()", zap.Error(err))
+			}
+		} else {
+			return echo.NewHTTPError(code, err.Error())
+		}
 	}
 
 	return c.NoContent(http.StatusNoContent)
 }
 
 func (h *Handler) GetBooks(c echo.Context) error {
-	data, code, err := h.librarySvc.GetBooks(c)
-	if err != nil {
-		return echo.NewHTTPError(code, err.Error())
+	var (
+		code int
+		data []byte
+	)
+	if err := h.librarySvc.CB().Call(func() error {
+		var err error
+		data, code, err = h.librarySvc.GetBooks(c)
+		if err != nil {
+			return echo.NewHTTPError(code, err.Error())
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
+
+	return c.JSONBlob(code, data)
+}
+
+func (h *Handler) GetLibraries(c echo.Context) error {
+	var (
+		code int
+		data []byte
+	)
+	if err := h.librarySvc.CB().Call(func() error {
+		var err error
+		data, code, err = h.librarySvc.GetLibraries(c)
+		if err != nil {
+			return echo.NewHTTPError(code, err.Error())
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
 	return c.JSONBlob(code, data)
 }
 
 func (h *Handler) GetRating(c echo.Context) error {
-	resp, code, err := h.ratingSvc.GetRating(c.Request().Context(), c.Request().Header.Get(XUserName))
+	userName, err := auth0.ExtractUserName(c)
 	if err != nil {
-		return echo.NewHTTPError(code, err.Error())
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
-	return c.JSON(code, resp)
-}
+	var (
+		code int
+		resp model.Rating
+	)
+	if err := h.ratingSvc.CB().Call(func() error {
+		var err error
+		resp, code, err = h.ratingSvc.GetRating(c.Request().Context(), userName)
+		if err != nil {
+			return echo.NewHTTPError(code, err.Error())
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
 
-func (h *Handler) GetLibraries(c echo.Context) error {
-	data, code, err := h.librarySvc.GetLibraries(c)
-	if err != nil {
-		return echo.NewHTTPError(code, err.Error())
-	}
-	return c.JSONBlob(code, data)
+	return c.JSON(code, resp)
 }

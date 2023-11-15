@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ .Values.gateway.pv.volumeName }}
+  namespace: {{ include "library-app.namespace" . }}
+spec:
+  capacity:
+    storage: {{ .Values.gateway.persistence.claim }}
+  storageClassName: {{ .Values.storageClass.name }}
+  accessModes:
+    - {{ .Values.gateway.pv.accessMode | quote }}
+  persistentVolumeReclaimPolicy: {{ .Values.gateway.pv.reclaimPolicy }}
+  volumeMode: {{ .Values.gateway.pv.volumeMode }}
+  local:
+    path: {{ .Values.gateway.pv.path }}
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: Exists
+              values: [ ]
+

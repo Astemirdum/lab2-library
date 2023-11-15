@@ -1,0 +1,33 @@
+{{- if .Values.app.initdbPvPvc.enabled }}
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: {{ include "db.name" . }}-initdb-pv-volume
+  labels:
+    {{- include "db.labels" . | nindent 4 }}
+    type: local
+  namespace: {{ include "library-app.namespace" . }}
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Mi
+  accessModes:
+    - ReadOnlyMany
+  hostPath:
+    path: "postgres" {{/*    "/path/to/initdb/sql/scripts"*/}}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ include "db.name" . }}-initdb-pv-claim
+  labels:
+    {{- include "db.labels" . | nindent 4 }}
+  namespace: {{ include "library-app.namespace" . }}
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadOnlyMany
+  resources:
+    requests:
+      storage: 1Mi
+{{- end}}

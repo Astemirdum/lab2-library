@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Astemirdum/library-service/pkg/kafka"
+
 	"github.com/Astemirdum/library-service/pkg/postgres"
 
 	"github.com/Astemirdum/library-service/pkg/logger"
@@ -20,9 +22,10 @@ type HTTPServer struct {
 }
 
 type Config struct {
-	Server   HTTPServer  `yaml:"server"`
-	Database postgres.DB `yaml:"db"`
-	Log      logger.Log  `yaml:"log"`
+	Server   HTTPServer   `yaml:"server"`
+	Kafka    kafka.Config `yaml:"kafka"`
+	Database postgres.DB  `yaml:"db"`
+	Log      logger.Log   `yaml:"log"`
 }
 
 var (

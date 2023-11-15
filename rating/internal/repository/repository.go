@@ -3,28 +3,31 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/Astemirdum/library-service/rating/internal/errs"
 	"github.com/pkg/errors"
 
 	sq "github.com/Masterminds/squirrel"
 
-	ratingModel "github.com/Astemirdum/library-service/rating/internal/model"
-	"github.com/jmoiron/sqlx"
+	"github.com/Astemirdum/library-service/rating/internal/model"
 	"go.uber.org/zap"
 )
 
 type Repository interface {
-	GetRating(ctx context.Context, name string) (ratingModel.Rating, error)
+	GetRating(ctx context.Context, name string) (model.Rating, error)
 	Rating(ctx context.Context, name string, stars int) error
 }
 
 type repository struct {
-	db  *sqlx.DB
+	db  *pgxpool.Pool
 	log *zap.Logger
 }
 
-func NewRepository(db *sqlx.DB, log *zap.Logger) (*repository, error) {
+func NewRepository(db *pgxpool.Pool, log *zap.Logger) (*repository, error) {
 	return &repository{
 		db:  db,
 		log: log.Named("repo"),
@@ -40,28 +43,37 @@ var qb = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 func (r *repository) Rating(ctx context.Context, name string, stars int) error {
 	q := `
 update rating 
-set stars = stars + $1
-where username=$2`
-	_, err := r.db.ExecContext(ctx, q, stars, name)
+set stars = stars + @stars
+where username=@userName`
+	args := pgx.NamedArgs{
+		"userName": name,
+		"stars":    stars,
+	}
+	_, err := r.db.Exec(ctx, q, args)
 	return err
 }
 
-func (r *repository) GetRating(ctx context.Context, name string) (ratingModel.Rating, error) {
+func (r *repository) GetRating(ctx context.Context, name string) (model.Rating, error) {
 	q, args, err := qb.Select("stars").
 		From(ratingTableName).
 		Where(sq.Eq{"username": name}).
 		ToSql()
 	if err != nil {
-		return ratingModel.Rating{}, err
+		return model.Rating{}, err
 	}
 
-	var rr ratingModel.Rating
-	if err := r.db.GetContext(ctx, &rr, q, args...); err != nil {
+	//var rr model.Rating
+	rows, err := r.db.Query(ctx, q, args...)
+	if err != nil {
+		return model.Rating{}, err
+	}
+	defer rows.Close()
+	rr, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[model.Rating])
+	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return ratingModel.Rating{}, errs.ErrNotFound
+			return model.Rating{}, errs.ErrNotFound
 		}
-		return ratingModel.Rating{}, err
+		return model.Rating{}, fmt.Errorf("pgx.CollectRows: %w", err)
 	}
-
 	return rr, nil
 }

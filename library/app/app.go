@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -22,21 +23,21 @@ import (
 	"go.uber.org/zap"
 )
 
-func Run(cfg *config.Config) {
+func Run(cfg *config.Config) error {
 	log := logger.NewLogger(cfg.Log, "library")
 	db, err := postgres.NewPostgresDB(context.Background(), &cfg.Database, migrations.MigrationFiles)
 	if err != nil {
-		log.Fatal("db init", zap.Error(err))
+		return fmt.Errorf("db init %v", err)
 	}
 	repo, err := repository.NewRepository(db, log)
 	if err != nil {
-		log.Fatal("repo", zap.Error(err))
+		return fmt.Errorf("repo %v", err)
 	}
 	svc := service.NewService(repo, log)
 
 	consumer, err := kafka.NewConsumer(cfg.Kafka, kafka.LibraryConsumerGroup)
 	if err != nil {
-		log.Fatal("kafka.NewConsumer", zap.Error(err))
+		return fmt.Errorf("kafka.NewConsumer %v", err)
 	}
 	go kafka.Consume(consumer, handler.NewConsumer(svc.AvailableCount, log), kafka.LibraryTopic)
 
@@ -61,8 +62,9 @@ func Run(cfg *config.Config) {
 	defer cancel()
 
 	if err = srv.Stop(closeCtx); err != nil {
-		log.DPanic("srv.Stop", zap.Error(err))
+		log.Error("srv.Stop", zap.Error(err))
 	}
 	db.Close()
 	log.Info("Graceful shutdown finished")
+	return nil
 }

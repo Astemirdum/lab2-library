@@ -17,7 +17,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func Run(cfg config.Config) {
+func Run(cfg config.Config) error {
 	log := logger.NewLogger(cfg.Log, "gateway")
 	producer, err := kafka.NewProducer(cfg.Kafka)
 	if err != nil {
@@ -45,8 +45,10 @@ func Run(cfg config.Config) {
 	defer cancel()
 
 	if err := srv.Stop(closeCtx); err != nil {
-		log.DPanic("srv.Stop", zap.Error(err))
+		log.Error("srv.Stop", zap.Error(err))
 	}
+
 	log.Info("Graceful shutdown finished")
 	_ = producer.Close()
+	return nil
 }

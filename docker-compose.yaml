@@ -107,7 +107,7 @@ services:
       - --smp
       - "1"
       - --reserve-memory
-      - 0M
+      - 100M
       - --overprovisioned
       - --node-id
       - "0"

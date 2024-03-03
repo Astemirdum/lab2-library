@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -21,21 +22,21 @@ import (
 	"go.uber.org/zap"
 )
 
-func Run(cfg *config.Config) {
+func Run(cfg *config.Config) error {
 	log := logger.NewLogger(cfg.Log, "rating")
 	db, err := postgres.NewPostgresDB(context.Background(), &cfg.Database, migrations.MigrationFiles)
 	if err != nil {
-		log.Fatal("db init", zap.Error(err))
+		return fmt.Errorf("db init %v", err)
 	}
 	repo, err := repository.NewRepository(db, log)
 	if err != nil {
-		log.Fatal("repo users", zap.Error(err))
+		return fmt.Errorf("repo users %v", err)
 	}
 	svc := service.NewService(repo, log)
 
 	consumer, err := kafka.NewConsumer(cfg.Kafka, kafka.RatingConsumerGroup)
 	if err != nil {
-		log.Fatal("kafka.NewConsumer", zap.Error(err))
+		return fmt.Errorf("kafka.NewConsumer %v", err)
 	}
 	go kafka.Consume(consumer, handler.NewConsumer(svc.Rating, log), kafka.RatingTopic)
 
@@ -45,7 +46,7 @@ func Run(cfg *config.Config) {
 		zap.String("addr",
 			net.JoinHostPort(cfg.Server.Host, cfg.Server.Port)))
 	go func() {
-		if err := srv.Run(); err != nil {
+		if err = srv.Run(); err != nil {
 			log.Error("server run", zap.Error(err))
 		}
 	}()
@@ -64,4 +65,5 @@ func Run(cfg *config.Config) {
 	}
 	db.Close()
 	log.Info("Graceful shutdown finished")
+	return nil
 }

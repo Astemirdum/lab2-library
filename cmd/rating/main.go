@@ -1,7 +1,7 @@
 package main
 
 import (
-	stdLog "log"
+	"log"
 	"time"
 
 	"github.com/Astemirdum/library-service/rating/app"
@@ -13,12 +13,14 @@ import (
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-		stdLog.Fatal("load envs from .env ", zap.Error(err))
+		log.Fatal("load envs from .env ", zap.Error(err))
 	}
 	cfg := config.NewConfig(
 		config.WithLogLevel(zapcore.DebugLevel),
 		config.WithWriteTimeout(time.Minute),
 	)
 
-	app.Run(cfg)
+	if err := app.Run(cfg); err != nil {
+		log.Fatal("run", err)
+	}
 }

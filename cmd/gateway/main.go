@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/labstack/gommon/log"
 	stdLog "log"
 	"time"
 
@@ -20,5 +21,7 @@ func main() {
 		config.WithWriteTimeout(time.Minute),
 	)
 
-	app.Run(cfg)
+	if err := app.Run(cfg); err != nil {
+		log.Fatal("run", err)
+	}
 }

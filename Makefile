@@ -6,6 +6,8 @@ HELM=helm/library-app
 NAMESPACE=default
 MY_RELEASE=rsoi
 
+https://docs.redpanda.com/21.11/quickstart/kubernetes-qs-minikube/
+
 
 .PHONY: helm-run
 helm-run:
@@ -49,7 +51,7 @@ helm-db-run:
 
 .PHONY: run
 run:
-	docker compose -f ./docker-compose.yaml --env-file $(ENV) up -d --build #--remove-orphans
+	docker compose -f ./docker-compose.yaml --env-file $(ENV) up -d --build --remove-orphans
 
 .PHONY: run-svc
 run-svc: #  make run-svc svc=redis

@@ -26,7 +26,7 @@ type CreateReservationRequest struct {
 	BookUid    string `json:"bookUid" validate:"required"`
 	LibraryUid string `json:"libraryUid" validate:"required"`
 	TillDate   Date   `json:"tillDate" validate:"required"`
-	UserName   string `json:"-" validate:"required"`
+	UserName   string `json:"-"`
 	Stars      int    `json:"rating"`
 }
 
@@ -116,4 +116,17 @@ type AvailableCountRequest struct {
 	LibraryID int  `json:"libraryID"`
 	BookID    int  `json:"bookID"`
 	IsReturn  bool `json:"isReturn"`
+}
+
+type Stats struct {
+	UserName    string    `json:"username"`
+	LastUpdated time.Time `json:"last_updated"`
+	Rating      int       `json:"rating"`
+	CountReserv int       `json:"cnt_reserv"`
+	CountBooks  int       `json:"cnt_books"`
+	CountLibs   int       `json:"cnt_libs"`
+}
+
+type StatsInfo struct {
+	Data []Stats `json:"data"`
 }

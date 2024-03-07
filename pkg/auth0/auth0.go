@@ -2,7 +2,7 @@ package auth0
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -18,6 +18,9 @@ const (
 	userNameKeyString = "userNameKey"
 	admin             = "Test Max"
 
+	claimsKey = "claims"
+	XUserName = "X-User-Name"
+
 	AuthorizationHeader = "Authorization"
 	bearer              = "Bearer "
 )
@@ -26,28 +29,55 @@ type (
 	Config struct {
 		Issuer   string `yaml:"issuer" envconfig:"AUTH0_DOMAIN"`
 		Audience string `yaml:"audience" envconfig:"AUTH0_AUDIENCE"`
+		Enable   bool   `yaml:"enable" envconfig:"AUTH0_ENABLE"`
 	}
 )
 
-func MiddleWareWithConfig(cfg Config) echo.MiddlewareFunc {
+type Validator interface {
+	ValidateToken(ctx context.Context, tokenString string) (interface{}, error)
+}
+
+type validatorMock struct{}
+
+func (v *validatorMock) ValidateToken(_ context.Context, _ string) (interface{}, error) {
+	return new(validator.ValidatedClaims), nil
+}
+
+func NewValidator(cfg Config) (Validator, error) {
+	if !cfg.Enable {
+		return new(validatorMock), nil
+	}
 	issuerURL, err := url.Parse("https://" + cfg.Issuer + "/")
 	if err != nil {
-		log.Fatalf("Failed to parse the issuer url: %v", err)
+		return nil, fmt.Errorf("failed to parse the issuer url: %v", err)
 	}
-	provider := jwks.NewCachingProvider(issuerURL, 5*time.Minute)
-
+	provider := jwks.NewCachingProvider(issuerURL, time.Minute*5)
 	jwtValidator, err := validator.New(
 		provider.KeyFunc,
 		validator.RS256,
 		issuerURL.String(),
 		[]string{cfg.Audience},
-		//validator.WithCustomClaims(func() validator.CustomClaims { return &CustomClaims{} }),
+		validator.WithCustomClaims(func() validator.CustomClaims { return &CustomClaims{} }),
 		validator.WithAllowedClockSkew(time.Minute),
 	)
 	if err != nil {
-		log.Fatalf("Failed to set up the jwt validator")
+		return nil, fmt.Errorf("failed to set up the jwt validator: %v", err)
 	}
+	return jwtValidator, nil
+}
 
+func MiddlewareUserName(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		userName := c.Request().Header.Get(XUserName)
+		if userName == "" {
+			return echo.NewHTTPError(http.StatusUnauthorized, "username is empty")
+		}
+		c.Set(userNameKeyString, userName)
+		return next(c)
+	}
+}
+
+func Middleware(jwtValidator Validator) echo.MiddlewareFunc {
 	//errorHandler := func(w http.ResponseWriter, r *http.Request, err error) {
 	//	log.Printf("Encountered error while validating JWT: %v", err)
 	//
@@ -65,7 +95,6 @@ func MiddleWareWithConfig(cfg Config) echo.MiddlewareFunc {
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-
 			authorization := c.Request().Header.Get(AuthorizationHeader)
 			if authorization == "" {
 				return echo.NewHTTPError(http.StatusUnauthorized, "No Authorization Header")
@@ -78,10 +107,10 @@ func MiddleWareWithConfig(cfg Config) echo.MiddlewareFunc {
 
 			claims, err := jwtValidator.ValidateToken(c.Request().Context(), token)
 			if err != nil {
-				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid Token")
+				return echo.NewHTTPError(http.StatusUnauthorized, "invalid Token")
 			}
 
-			c.Set("claims", claims.(*validator.ValidatedClaims))
+			c.Set(claimsKey, claims) // .(*validator.ValidatedClaims)
 			c.Set(userNameKeyString, admin)
 
 			return next(c)
@@ -95,6 +124,7 @@ type CustomClaims struct {
 }
 
 func (c CustomClaims) Validate(ctx context.Context) error {
+	//TODO:
 	return nil
 }
 
@@ -111,12 +141,28 @@ func (c CustomClaims) HasScope(expectedScope string) bool {
 	return false
 }
 
-func ExtractUserName(c echo.Context) (string, error) {
-	username, ok := c.Get(userNameKeyString).(string)
+type Get interface {
+	Get(string) any
+}
+
+func IsAdmin(userName string) bool {
+	return userName == admin
+}
+
+func GetUserName(getter Get) (string, error) {
+	userName, ok := getter.Get(userNameKeyString).(string)
 	if !ok {
-		return "", errors.New("invalid userNameKeyString")
+		return "", errors.New("no username")
 	}
-	return username, nil
+	return userName, nil
+}
+
+func GetClaims(c echo.Context) (*validator.ValidatedClaims, error) {
+	claims, ok := c.Get(claimsKey).(*validator.ValidatedClaims)
+	if !ok {
+		return nil, errors.New("no claims")
+	}
+	return claims, nil
 }
 
 /*

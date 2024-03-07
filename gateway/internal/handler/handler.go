@@ -1,22 +1,27 @@
 package handler
 
 import (
+	"fmt"
+	"log/slog"
 	"net/http"
+	"time"
 
-	"github.com/Astemirdum/library-service/pkg/auth0"
-
-	"github.com/Astemirdum/library-service/pkg/kafka"
-	"github.com/IBM/sarama"
+	"github.com/Astemirdum/library-service/gateway/internal/service/stats"
 
 	"github.com/Astemirdum/library-service/gateway/config"
 	"github.com/Astemirdum/library-service/gateway/internal/model"
 	"github.com/Astemirdum/library-service/gateway/internal/service/library"
 	"github.com/Astemirdum/library-service/gateway/internal/service/rating"
 	"github.com/Astemirdum/library-service/gateway/internal/service/reservation"
+	"github.com/Astemirdum/library-service/pkg/auth0"
+	"github.com/Astemirdum/library-service/pkg/kafka"
+	"github.com/Astemirdum/library-service/pkg/openid"
 	"github.com/Astemirdum/library-service/pkg/validate"
 	_ "github.com/Astemirdum/library-service/swagger"
+	"github.com/IBM/sarama"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/pkg/errors"
 	echoSwagger "github.com/swaggo/echo-swagger"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -26,17 +31,23 @@ type Handler struct {
 	librarySvc     LibraryService
 	ratingSvc      RatingService
 	reservationSvc ReservationService
+	statsSvc       StatsService
 	enqueuer       Enqueuer
+	logstat        StatsLog
+	provider       openid.Provider
 	log            *zap.Logger
 }
 
-func New(log *zap.Logger, cfg config.Config, producer sarama.SyncProducer) *Handler {
+func New(log *zap.Logger, cfg config.Config, producer sarama.SyncProducer, asyncProducer sarama.AsyncProducer) *Handler {
 	h := &Handler{
 		librarySvc:     library.NewService(log, cfg),
 		ratingSvc:      rating.NewService(log, cfg),
 		reservationSvc: reservation.NewService(log, cfg),
+		statsSvc:       stats.NewService(log, cfg),
 		enqueuer:       NewEnqueuer(producer),
-		log:            log,
+		logstat:        NewStatsLog(asyncProducer, kafka.StatsTopic),
+		//provider:       openid.NewProvider(),
+		log: log,
 	}
 	return h
 }
@@ -63,6 +74,11 @@ func (h *Handler) NewRouter(auth0Cfg auth0.Config) *echo.Echo {
 
 	e.Validator = validate.NewCustomValidator()
 
+	auth, err := auth0.NewValidator(auth0Cfg)
+	if err != nil {
+		slog.Error("auth0.NewValidator")
+	}
+
 	api := e.Group("/api/v1",
 		middleware.RequestLoggerWithConfig(requestLoggerConfig()),
 		middleware.RequestID(),
@@ -70,7 +86,7 @@ func (h *Handler) NewRouter(auth0Cfg auth0.Config) *echo.Echo {
 	)
 	api.GET("/authorize", h.Authorize)
 	api.GET("/callback", h.Callback)
-	api = api.Group("", auth0.MiddleWareWithConfig(auth0Cfg))
+	api = api.Group("", auth0.Middleware(auth))
 
 	api.GET("/rating", h.GetRating)
 
@@ -81,6 +97,8 @@ func (h *Handler) NewRouter(auth0Cfg auth0.Config) *echo.Echo {
 	api.GET("/reservations", h.GetReservations)
 	api.POST("/reservations/:reservationUid/return", h.ReservationReturn)
 
+	api.GET("/stats", h.GetStats)
+
 	return e
 }
 
@@ -89,15 +107,36 @@ func (h *Handler) Health(c echo.Context) error {
 }
 
 func (h *Handler) Authorize(c echo.Context) error {
-	return c.String(http.StatusOK, "OK")
+	return c.Redirect(http.StatusFound, h.provider.AuthURL())
 }
 
 func (h *Handler) Callback(c echo.Context) error {
-	return c.String(http.StatusOK, "OK")
+	state := c.QueryParam("state")
+	if state == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, errors.New("no state"))
+	}
+	code := c.QueryParam("code")
+	if code == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, errors.New("no code"))
+	}
+
+	resp, err := h.provider.Provide(c.Request().Context(), state, code)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("authorize: %w", err))
+	}
+
+	cookie := &http.Cookie{
+		Name:   openid.CookieName,
+		Value:  "Bearer " + resp.OAuth2Token.AccessToken,
+		MaxAge: 60 * 60 * 24, // seconds
+		Path:   "/",
+	}
+	c.SetCookie(cookie)
+	return c.Redirect(http.StatusPermanentRedirect, "/")
 }
 
 func (h *Handler) GetReservations(c echo.Context) error {
-	userName, err := auth0.ExtractUserName(c)
+	userName, err := auth0.GetUserName(c)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -174,7 +213,7 @@ func getReservationResponse(reserves []model.GetReservation, books []model.Book,
 }
 
 func (h *Handler) CreateReservation(c echo.Context) error {
-	userName, err := auth0.ExtractUserName(c)
+	userName, err := auth0.GetUserName(c)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -192,11 +231,11 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 		lib  model.GetLibrary
 		book model.GetBook
 		rat  model.Rating
-		code int
 	)
 	gg, ctxCancel := errgroup.WithContext(ctx)
 	gg.Go(func() error {
 		return h.librarySvc.CB().Call(func() error {
+			var code int
 			lib, code, err = h.librarySvc.GetLibrary(ctxCancel, createReservationRequest.LibraryUid)
 			if err != nil {
 				return echo.NewHTTPError(code, err.Error())
@@ -207,6 +246,7 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 
 	gg.Go(func() error {
 		return h.librarySvc.CB().Call(func() error {
+			var code int
 			book, code, err = h.librarySvc.GetBook(ctxCancel, createReservationRequest.LibraryUid, createReservationRequest.BookUid)
 			if err != nil {
 				return echo.NewHTTPError(code, err.Error())
@@ -217,6 +257,7 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 
 	gg.Go(func() error {
 		return h.ratingSvc.CB().Call(func() error {
+			var code int
 			rat, code, err = h.ratingSvc.GetRating(ctxCancel, createReservationRequest.UserName)
 			if err != nil {
 				return echo.NewHTTPError(code, err.Error())
@@ -240,10 +281,21 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 		IsReturn:  false,
 	}); err != nil {
 		if _, err := h.reservationSvc.RollbackReservation(ctx, rsv.ReservationUid); err != nil {
-			h.log.Warn("RollbackReservation")
+			h.log.Warn("RollbackReservation", zap.Error(err))
+			return echo.NewHTTPError(code, err.Error())
 		}
-		return echo.NewHTTPError(code, err.Error())
+		return nil
 	}
+
+	_ = h.logstat.Log(kafka.EventStats{ //nolint:errcheck
+		Timestamp:     time.Now(),
+		UserName:      userName,
+		ReservationID: rsv.ReservationUid,
+		BookID:        book.BookUid,
+		LibraryID:     lib.LibraryUid,
+		Rating:        rat.Stars,
+		Simplex:       kafka.SimplexUp,
+	})
 
 	return c.JSON(http.StatusOK, model.CreateReservationResponse{
 		ReservationUid: rsv.ReservationUid,
@@ -258,11 +310,11 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 
 func (h *Handler) ReservationReturn(c echo.Context) error {
 	ctx := c.Request().Context()
-	userName, err := auth0.ExtractUserName(c)
+	userName, err := auth0.GetUserName(c)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
-	reservationUid := c.Param("reservationUid")
+	reservationUID := c.Param("reservationUid")
 	var req model.ReservationReturnRequest
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -270,7 +322,7 @@ func (h *Handler) ReservationReturn(c echo.Context) error {
 	if err := c.Validate(req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	res, code, err := h.reservationSvc.ReservationReturn(ctx, req, userName, reservationUid)
+	res, code, err := h.reservationSvc.ReservationReturn(ctx, req, userName, reservationUID)
 	if err != nil {
 		return echo.NewHTTPError(code, err.Error())
 	}
@@ -281,6 +333,7 @@ func (h *Handler) ReservationReturn(c echo.Context) error {
 	gg, ctxCancel := errgroup.WithContext(ctx)
 	gg.Go(func() error {
 		return h.librarySvc.CB().Call(func() error {
+			var code int
 			lib, code, err = h.librarySvc.GetLibrary(ctxCancel, res.LibraryUid)
 			if err != nil {
 				return echo.NewHTTPError(code, err.Error())
@@ -291,6 +344,7 @@ func (h *Handler) ReservationReturn(c echo.Context) error {
 
 	gg.Go(func() error {
 		return h.librarySvc.CB().Call(func() error {
+			var code int
 			book, code, err = h.librarySvc.GetBook(ctxCancel, res.LibraryUid, res.BookUid)
 			if err != nil {
 				return echo.NewHTTPError(code, err.Error())
@@ -310,7 +364,7 @@ func (h *Handler) ReservationReturn(c echo.Context) error {
 	if code, err := h.librarySvc.AvailableCount(ctx, availableCountReq); err != nil {
 		if code == http.StatusServiceUnavailable {
 			if err := h.enqueuer.Enqueue(kafka.LibraryTopic, availableCountReq); err != nil {
-				h.log.Warn("AvailableCount h.enqueuer.Enqueue()", zap.Error(err))
+				h.log.Warn("availableCount h.enqueuer.Enqueue()", zap.Error(err))
 			}
 		} else {
 			return echo.NewHTTPError(code, err.Error())
@@ -328,7 +382,6 @@ func (h *Handler) ReservationReturn(c echo.Context) error {
 				Name:  userName,
 				Stars: stars,
 			}
-			//h.enqueuer.EnqueueV2(ctx, h.ratingSvc.Rating, ratingMsg)
 			if err := h.enqueuer.Enqueue(kafka.RatingTopic, ratingMsg); err != nil {
 				h.log.Warn("Rating h.enqueuer.Enqueue()", zap.Error(err))
 			}
@@ -336,6 +389,15 @@ func (h *Handler) ReservationReturn(c echo.Context) error {
 			return echo.NewHTTPError(code, err.Error())
 		}
 	}
+
+	_ = h.logstat.Log(kafka.EventStats{ //nolint:errcheck
+		Timestamp:     time.Now(),
+		UserName:      userName,
+		ReservationID: reservationUID,
+		BookID:        book.BookUid,
+		LibraryID:     lib.LibraryUid,
+		Simplex:       kafka.SimplexDown,
+	})
 
 	return c.NoContent(http.StatusNoContent)
 }
@@ -379,7 +441,7 @@ func (h *Handler) GetLibraries(c echo.Context) error {
 }
 
 func (h *Handler) GetRating(c echo.Context) error {
-	userName, err := auth0.ExtractUserName(c)
+	userName, err := auth0.GetUserName(c)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -396,6 +458,29 @@ func (h *Handler) GetRating(c echo.Context) error {
 		return nil
 	}); err != nil {
 		return err
+	}
+
+	return c.JSON(code, resp)
+}
+
+func (h *Handler) GetStats(c echo.Context) error {
+	userName, err := auth0.GetUserName(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	}
+	if !auth0.IsAdmin(userName) {
+		return echo.NewHTTPError(http.StatusUnauthorized, "no admin")
+	}
+	var (
+		code int
+		resp model.StatsInfo
+	)
+	if err := h.statsSvc.CB().Call(func() error {
+		var err error
+		resp, code, err = h.statsSvc.GetStats(c.Request().Context(), userName)
+		return err
+	}); err != nil {
+		return echo.NewHTTPError(code, err.Error())
 	}
 
 	return c.JSON(code, resp)

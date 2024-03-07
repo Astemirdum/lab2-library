@@ -19,11 +19,21 @@ import (
 
 func Run(cfg config.Config) error {
 	log := logger.NewLogger(cfg.Log, "gateway")
-	producer, err := kafka.NewProducer(cfg.Kafka)
+	producer, err := kafka.NewSyncProducer(cfg.Kafka)
 	if err != nil {
 		log.DPanic("kafka", zap.Error(err))
+		return err
 	}
-	h := handler.New(log, cfg, producer)
+	defer producer.Close()
+
+	asyncProducer, err := kafka.NewAsyncProducer(cfg.Kafka)
+	if err != nil {
+		log.DPanic("kafka", zap.Error(err))
+		return err
+	}
+	defer asyncProducer.Close()
+
+	h := handler.New(log, cfg, producer, asyncProducer)
 
 	srv := server.NewServer(cfg.Server, h.NewRouter(cfg.Auth0))
 	log.Info("http server start ON: ",
@@ -49,6 +59,5 @@ func Run(cfg config.Config) error {
 	}
 
 	log.Info("Graceful shutdown finished")
-	_ = producer.Close()
 	return nil
 }

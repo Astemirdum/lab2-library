@@ -26,17 +26,17 @@ func Run(cfg *config.Config) error {
 	log := logger.NewLogger(cfg.Log, "rating")
 	db, err := postgres.NewPostgresDB(context.Background(), &cfg.Database, migrations.MigrationFiles)
 	if err != nil {
-		return fmt.Errorf("db init %v", err)
+		return fmt.Errorf("db init %w", err)
 	}
 	repo, err := repository.NewRepository(db, log)
 	if err != nil {
-		return fmt.Errorf("repo users %v", err)
+		return fmt.Errorf("repo users %w", err)
 	}
 	svc := service.NewService(repo, log)
 
 	consumer, err := kafka.NewConsumer(cfg.Kafka, kafka.RatingConsumerGroup)
 	if err != nil {
-		return fmt.Errorf("kafka.NewConsumer %v", err)
+		return fmt.Errorf("kafka.NewConsumer %w", err)
 	}
 	go kafka.Consume(consumer, handler.NewConsumer(svc.Rating, log), kafka.RatingTopic)
 

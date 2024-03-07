@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Astemirdum/library-service/pkg/auth0"
+
 	"github.com/pkg/errors"
 
 	"github.com/Astemirdum/library-service/reservation/internal/errs"
@@ -58,9 +60,9 @@ func (h *Handler) NewRouter() *echo.Echo {
 		newRateLimiterMW(apiRPS),
 	)
 
-	api.GET("/reservations", h.GetReservations)
-	api.POST("/reservations", h.CreateReservation)
-	api.POST("/reservations/:reservationUid/return", h.ReservationsReturn)
+	api.GET("/reservations", h.GetReservations, auth0.MiddlewareUserName)
+	api.POST("/reservations", h.CreateReservation, auth0.MiddlewareUserName)
+	api.POST("/reservations/:reservationUid/return", h.ReservationsReturn, auth0.MiddlewareUserName)
 	api.POST("/reservations/rollback", h.RollbackReservation)
 
 	return e
@@ -70,16 +72,17 @@ func (h *Handler) Health(c echo.Context) error {
 	return c.String(http.StatusOK, "OK")
 }
 
-const (
-	XUserName = "X-User-Name"
-)
-
 func (h *Handler) CreateReservation(c echo.Context) error {
 	var req model.CreateReservationRequest
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	req.UserName = c.Request().Header.Get(XUserName)
+	userName, err := auth0.GetUserName(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	}
+	req.UserName = userName
+
 	if err := c.Validate(req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
@@ -98,11 +101,11 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 
 func (h *Handler) GetReservations(c echo.Context) error {
 	ctx := c.Request().Context()
-	username := c.Request().Header.Get(XUserName)
-	if username == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, errs.ErrUserName)
+	userName, err := auth0.GetUserName(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
-	rsv, err := h.reservationSvc.GetReservations(ctx, username)
+	rsv, err := h.reservationSvc.GetReservations(ctx, userName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -111,9 +114,9 @@ func (h *Handler) GetReservations(c echo.Context) error {
 
 func (h *Handler) ReservationsReturn(c echo.Context) error {
 	ctx := c.Request().Context()
-	username := c.Request().Header.Get(XUserName)
-	if username == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, errs.ErrUserName)
+	userName, err := auth0.GetUserName(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 	reservationUid := c.Param("reservationUid")
 	if reservationUid == "" {
@@ -126,7 +129,7 @@ func (h *Handler) ReservationsReturn(c echo.Context) error {
 	if err := c.Validate(req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	resp, err := h.reservationSvc.ReservationsReturn(ctx, username, reservationUid)
+	resp, err := h.reservationSvc.ReservationsReturn(ctx, userName, reservationUid)
 	if err != nil {
 		if errors.Is(err, errs.ErrNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, err.Error())

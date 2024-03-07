@@ -26,10 +26,10 @@ const (
 
 type Reservation struct {
 	ID             int       `json:"-" db:"id"`
-	ReservationUid string    `json:"reservationUid" db:"reservation_uid"`
+	ReservationUID string    `json:"reservationUid" db:"reservation_uid"`
 	Username       string    `json:"username" db:"username"`
-	BookUid        string    `json:"bookUid" db:"book_uid"`
-	LibraryUid     string    `json:"libraryUid" db:"library_uid"`
+	BookUID        string    `json:"bookUid" db:"book_uid"`
+	LibraryUID     string    `json:"libraryUid" db:"library_uid"`
 	Status         Status    `json:"status" db:"status"`
 	StartDate      time.Time `json:"startDate" db:"start_date"`
 	TillDate       time.Time `json:"tillDate" db:"till_date"`

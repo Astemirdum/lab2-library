@@ -36,6 +36,11 @@ type RatingService interface {
 	CB() circuit_breaker.CircuitBreaker
 }
 
+type StatsService interface {
+	GetStats(ctx context.Context, userName string) (model.StatsInfo, int, error)
+	CB() circuit_breaker.CircuitBreaker
+}
+
 type ReservationService interface {
 	GetReservation(ctx context.Context, username string) ([]model.GetReservation, int, error)
 	CreateReservation(ctx context.Context, request model.CreateReservationRequest) (model.Reservation, int, error)

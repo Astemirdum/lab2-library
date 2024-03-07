@@ -25,6 +25,11 @@ type RatingHTTPServer struct {
 	Port string `envconfig:"RATING_HTTP_PORT"`
 }
 
+type StatsHTTPServer struct {
+	Host string `envconfig:"STATS_HTTP_HOST"`
+	Port string `envconfig:"STATS_HTTP_PORT"`
+}
+
 type LibraryHTTPServer struct {
 	Host string `envconfig:"LIBRARY_HTTP_HOST"`
 	Port string `envconfig:"LIBRARY_HTTP_PORT"`
@@ -42,6 +47,7 @@ type Config struct {
 	ReservationHTTPServer ReservationHTTPServer
 	LibraryHTTPServer     LibraryHTTPServer
 	RatingHTTPServer      RatingHTTPServer
+	StatsHTTPServer       StatsHTTPServer
 	Log                   logger.Log `yaml:"log"`
 }
 

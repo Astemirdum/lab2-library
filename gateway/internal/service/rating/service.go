@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Astemirdum/library-service/pkg/auth0"
+
 	"github.com/pkg/errors"
 
 	"github.com/Astemirdum/library-service/pkg/circuit_breaker"
@@ -33,7 +35,7 @@ type Service struct {
 func NewService(log *zap.Logger, cfg config.Config) *Service {
 	return &Service{
 		log:    log,
-		client: &http.Client{},
+		client: &http.Client{Timeout: time.Minute},
 		cfg:    cfg.RatingHTTPServer,
 		cb:     circuit_breaker.New(100, time.Second, 0.2, 2),
 	}
@@ -48,7 +50,7 @@ func (s *Service) GetRating(ctx context.Context, userName string) (model.Rating,
 	if err != nil {
 		return model.Rating{}, http.StatusBadRequest, err
 	}
-	req.Header.Set("X-User-Name", userName)
+	req.Header.Set(auth0.XUserName, userName)
 	resp, err := s.client.Do(req)
 	if err != nil {
 		return model.Rating{}, http.StatusServiceUnavailable, errors.New("Bonus Service unavailable")

@@ -7,13 +7,14 @@ services:
     image: ${GATEWAY_IMAGE_NAME}:${GATEWAY_IMAGE_TAG}
     restart: unless-stopped
     container_name: gateway
-#    depends_on:
-#      - redpanda
+    depends_on:
+      - redpanda
     environment:
       - KAFKA_ADDRS=redpanda:9092
       - LIBRARY_HTTP_HOST=library
       - RESERVATION_HTTP_HOST=reservation
       - RATING_HTTP_HOST=rating
+      - STATS_HTTP_HOST=stats
     ports:
       - "${GATEWAY_HTTP_PORT}:${GATEWAY_HTTP_PORT}"
     networks:
@@ -34,8 +35,7 @@ services:
       - "${LIBRARY_HTTP_PORT}:${LIBRARY_HTTP_PORT}"
     depends_on:
       - postgres
-#      - redpanda
-      - gateway
+      - redpanda
     networks:
       - library
 
@@ -53,7 +53,6 @@ services:
       - "${RESERVATION_HTTP_PORT}:${RESERVATION_HTTP_PORT}"
     depends_on:
       - postgres
-      - gateway
     networks:
       - library
 
@@ -72,8 +71,26 @@ services:
       - "${RATING_HTTP_PORT}:${RATING_HTTP_PORT}"
     depends_on:
       - postgres
-#      - redpanda
-      - gateway
+      - redpanda
+    networks:
+      - library
+
+  stats:
+    build:
+      context: .
+      dockerfile: docker/stats.Dockerfile
+    image: ${STATS_IMAGE_NAME}:${STATS_IMAGE_TAG}
+    restart: unless-stopped
+    container_name: stats
+    environment:
+      - KAFKA_ADDRS=redpanda:9092
+      - DB_HOST=postgres
+      - DB_NAME=stats
+    ports:
+      - "${STATS_HTTP_PORT}:${STATS_HTTP_PORT}"
+    depends_on:
+      - postgres
+      - redpanda
     networks:
       - library
 

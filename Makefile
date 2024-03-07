@@ -6,7 +6,7 @@ HELM=helm/library-app
 NAMESPACE=default
 MY_RELEASE=rsoi
 
-https://docs.redpanda.com/21.11/quickstart/kubernetes-qs-minikube/
+#https://docs.redpanda.com/21.11/quickstart/kubernetes-qs-minikube/
 
 
 .PHONY: helm-run
@@ -50,16 +50,16 @@ helm-db-run:
  		oci://registry-1.docker.io/bitnamicharts/postgresql
 
 .PHONY: run
-run:
-	docker compose -f ./docker-compose.yaml --env-file $(ENV) up -d --build --remove-orphans
-
-.PHONY: run-svc
-run-svc: #  make run-svc svc=redis
-	docker compose -f ./docker-compose.yaml --env-file $(ENV) up -d $(svc)
+run: #  make run svc=gateway
+	docker compose -f ./docker-compose.yaml --env-file $(ENV) up -d --build $(svc)
 
 .PHONY: stop
 stop:
-	docker compose -f ./docker-compose.yaml --env-file $(ENV) down --volumes
+	docker compose -f ./docker-compose.yaml --env-file $(ENV) stop
+
+.PHONY: down
+down:
+	docker compose -f ./docker-compose.yaml --env-file $(ENV) down volumes
 
 .PHONY: remove-volume
 remove-volume:
@@ -76,7 +76,7 @@ remove-volume:
 .PHONY: lint
 lint:
 	go vet ./...
-	golangci-lint run --fix
+	golangci-lint run --fix # --config .golangci.yml
 
 .PHONY: test
 test:

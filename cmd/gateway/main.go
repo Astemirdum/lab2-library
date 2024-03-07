@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/labstack/gommon/log"
 	stdLog "log"
 	"time"
+
+	"github.com/labstack/gommon/log"
 
 	"github.com/Astemirdum/library-service/gateway/app"
 	"github.com/Astemirdum/library-service/gateway/config"

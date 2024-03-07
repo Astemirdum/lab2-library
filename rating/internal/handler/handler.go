@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Astemirdum/library-service/pkg/auth0"
+
 	"github.com/Astemirdum/library-service/rating/internal/errs"
 	"github.com/pkg/errors"
 
@@ -54,6 +56,7 @@ func (h *Handler) NewRouter() *echo.Echo {
 		middleware.RequestLoggerWithConfig(requestLoggerConfig()),
 		middleware.RequestID(),
 		newRateLimiterMW(apiRPS),
+		auth0.MiddlewareUserName,
 	)
 
 	api.GET("/rating", h.GetRating)
@@ -68,9 +71,9 @@ func (h *Handler) Health(c echo.Context) error {
 
 func (h *Handler) Rating(c echo.Context) error {
 	ctx := c.Request().Context()
-	userName := c.Request().Header.Get("X-User-Name")
-	if userName == "" {
-		return echo.NewHTTPError(http.StatusNotFound, "username is empty")
+	userName, err := auth0.GetUserName(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
 	ratingReq := struct {
@@ -79,8 +82,7 @@ func (h *Handler) Rating(c echo.Context) error {
 	if err := c.Bind(&ratingReq); err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, err.Error())
 	}
-	err := h.ratingSvc.Rating(ctx, userName, ratingReq.Stars)
-	if err != nil {
+	if err := h.ratingSvc.Rating(ctx, userName, ratingReq.Stars); err != nil {
 		if errors.Is(err, errs.ErrNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, err.Error())
 		}
@@ -93,9 +95,9 @@ func (h *Handler) Rating(c echo.Context) error {
 func (h *Handler) GetRating(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	userName := c.Request().Header.Get("X-User-Name")
-	if userName == "" {
-		return echo.NewHTTPError(http.StatusNotFound, "username is empty")
+	userName, err := auth0.GetUserName(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
 	stars, err := h.ratingSvc.GetRating(ctx, userName)

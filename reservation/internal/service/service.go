@@ -38,8 +38,8 @@ func (s *Service) GetReservations(ctx context.Context, username string) ([]model
 	return s.repo.GetReservations(ctx, username)
 }
 
-func (s *Service) ReservationsReturn(ctx context.Context, username, reservationUid string) (model.ReservationReturnResponse, error) {
-	return s.repo.ReservationsReturn(ctx, username, reservationUid)
+func (s *Service) ReservationsReturn(ctx context.Context, username, reservationUID string) (model.ReservationReturnResponse, error) {
+	return s.repo.ReservationsReturn(ctx, username, reservationUID)
 }
 
 func (s *Service) RollbackReservation(ctx context.Context, uid string) error {

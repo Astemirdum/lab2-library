@@ -26,7 +26,7 @@ type Repository interface {
 	GetRented(ctx context.Context, username string) (int, error)
 	DeleteReservation(ctx context.Context, uid string) error
 	GetReservations(ctx context.Context, username string) ([]model.Reservation, error)
-	ReservationsReturn(ctx context.Context, username, reservationUid string) (model.ReservationReturnResponse, error)
+	ReservationsReturn(ctx context.Context, username, reservationUID string) (model.ReservationReturnResponse, error)
 }
 
 type repository struct {
@@ -47,15 +47,15 @@ const (
 
 var qb = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
-func (r *repository) ReservationsReturn(ctx context.Context, username, reservationUid string) (model.ReservationReturnResponse, error) {
-	q := fmt.Sprintf(`update %s
-	set status = case when date(now()) > till_date 
-	    then 'EXPIRED' else 'RETURNED' end
+func (r *repository) ReservationsReturn(ctx context.Context, username, reservationUID string) (model.ReservationReturnResponse, error) {
+	q := `
+	update reservation
+	set status = case when date(now()) > till_date then 'EXPIRED' else 'RETURNED' end
 	where reservation_uid = @reservation_uid and username = @username and status='RENTED'
-	returning library_uid, book_uid`, reservationTableName)
+	returning library_uid, book_uid`
 
 	args := pgx.NamedArgs{
-		"reservation_uid": reservationUid,
+		"reservation_uid": reservationUID,
 		"username":        username,
 	}
 	var resp model.ReservationReturnResponse

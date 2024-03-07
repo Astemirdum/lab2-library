@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"time"
@@ -86,6 +87,8 @@ func (s *Service) CreateReservation(ctx context.Context, request model.CreateRes
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
+		data, _ := io.ReadAll(resp.Body) //nolint:errcheck
+		s.log.Debug("CreateReservation", zap.String("data", string(data)))
 		return model.Reservation{}, resp.StatusCode, errs.ErrDefault
 	}
 	var rsv model.Reservation
@@ -114,6 +117,8 @@ func (s *Service) RollbackReservation(ctx context.Context, uuid string) (int, er
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
+		data, _ := io.ReadAll(resp.Body) //nolint:errcheck
+		s.log.Debug("RollbackReservation", zap.String("data", string(data)))
 		return resp.StatusCode, errs.ErrDefault
 	}
 	return resp.StatusCode, nil
@@ -136,12 +141,16 @@ func (s *Service) ReservationReturn(ctx context.Context, req model.ReservationRe
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode >= 400 {
+		data, _ := io.ReadAll(resp.Body) //nolint:errcheck
+		s.log.Debug("ReservationReturn", zap.String("data", string(data)))
+		return model.ReservationReturnResponse{}, resp.StatusCode, errs.ErrDefault
+	}
+
 	var res model.ReservationReturnResponse
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		return model.ReservationReturnResponse{}, http.StatusBadRequest, err
 	}
-	if resp.StatusCode >= 400 {
-		return model.ReservationReturnResponse{}, resp.StatusCode, errs.ErrDefault
-	}
+
 	return res, resp.StatusCode, nil
 }

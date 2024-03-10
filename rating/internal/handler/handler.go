@@ -4,7 +4,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Astemirdum/library-service/pkg/auth0"
+	"github.com/Astemirdum/library-service/rating/internal/model"
+
+	"github.com/Astemirdum/library-service/pkg/auth"
+	md "github.com/Astemirdum/library-service/pkg/middleware"
 
 	"github.com/Astemirdum/library-service/rating/internal/errs"
 	"github.com/pkg/errors"
@@ -48,17 +51,19 @@ func (h *Handler) NewRouter() *echo.Echo {
 		AllowCredentials: true,
 	}))
 
-	base := e.Group("", newRateLimiterMW(baseRPS))
+	base := e.Group("", md.NewRateLimiter(baseRPS))
 	base.GET("/manage/health", h.Health)
 
 	e.Validator = validate.NewCustomValidator()
-	api := e.Group("/api/v1",
-		middleware.RequestLoggerWithConfig(requestLoggerConfig()),
-		middleware.RequestID(),
-		newRateLimiterMW(apiRPS),
-		auth0.MiddlewareUserName,
-	)
 
+	api := e.Group("/api/v1",
+		middleware.RequestLoggerWithConfig(md.RequestLoggerConfig()),
+		middleware.RequestID(),
+		md.NewRateLimiter(apiRPS),
+	)
+	api.POST("/rating", h.Rating)
+
+	api = api.Group("", md.AuthContext)
 	api.GET("/rating", h.GetRating)
 	api.PATCH("/rating", h.Rating)
 
@@ -71,18 +76,33 @@ func (h *Handler) Health(c echo.Context) error {
 
 func (h *Handler) Rating(c echo.Context) error {
 	ctx := c.Request().Context()
-	userName, err := auth0.GetUserName(c)
+	userName, err := auth.GetUserName(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	ratingReq := struct {
-		Stars int `json:"stars"`
-	}{}
+	var ratingReq model.Rating
 	if err := c.Bind(&ratingReq); err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, err.Error())
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 	if err := h.ratingSvc.Rating(ctx, userName, ratingReq.Stars); err != nil {
+		if errors.Is(err, errs.ErrNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, err.Error())
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
+func (h *Handler) CreateRating(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	var ratingReq model.CreateRating
+	if err := c.Bind(&ratingReq); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if err := h.ratingSvc.CreateRating(ctx, ratingReq.Name, ratingReq.Stars); err != nil {
 		if errors.Is(err, errs.ErrNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, err.Error())
 		}
@@ -95,7 +115,7 @@ func (h *Handler) Rating(c echo.Context) error {
 func (h *Handler) GetRating(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	userName, err := auth0.GetUserName(c)
+	userName, err := auth.GetUserName(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}

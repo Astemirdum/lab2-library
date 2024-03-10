@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	md "github.com/Astemirdum/library-service/pkg/middleware"
+
 	"github.com/Astemirdum/library-service/library/internal/errs"
 	"github.com/Astemirdum/library-service/pkg/validate"
 	"github.com/labstack/echo/v4"
@@ -46,14 +48,14 @@ func (h *Handler) NewRouter() *echo.Echo {
 		AllowCredentials: true,
 	}))
 
-	base := e.Group("", newRateLimiterMW(baseRPS))
+	base := e.Group("", md.NewRateLimiter(baseRPS))
 	base.GET("/manage/health", h.Health)
 
 	e.Validator = validate.NewCustomValidator()
 	api := e.Group("/api/v1",
-		middleware.RequestLoggerWithConfig(requestLoggerConfig()),
+		middleware.RequestLoggerWithConfig(md.RequestLoggerConfig()),
 		middleware.RequestID(),
-		newRateLimiterMW(apiRPS),
+		md.NewRateLimiter(apiRPS),
 	)
 
 	api.GET("/libraries/:libraryUid/books", h.GetBooks)

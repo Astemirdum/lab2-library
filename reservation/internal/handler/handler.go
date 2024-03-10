@@ -4,16 +4,15 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Astemirdum/library-service/pkg/auth0"
-
-	"github.com/pkg/errors"
-
-	"github.com/Astemirdum/library-service/reservation/internal/errs"
-	"github.com/Astemirdum/library-service/reservation/internal/model"
+	"github.com/Astemirdum/library-service/pkg/auth"
+	md "github.com/Astemirdum/library-service/pkg/middleware"
 
 	"github.com/Astemirdum/library-service/pkg/validate"
+	"github.com/Astemirdum/library-service/reservation/internal/errs"
+	"github.com/Astemirdum/library-service/reservation/internal/model"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -50,20 +49,21 @@ func (h *Handler) NewRouter() *echo.Echo {
 		AllowCredentials: true,
 	}))
 
-	base := e.Group("", newRateLimiterMW(baseRPS))
+	base := e.Group("", md.NewRateLimiter(baseRPS))
 	base.GET("/manage/health", h.Health)
 
 	e.Validator = validate.NewCustomValidator()
 	api := e.Group("/api/v1",
-		middleware.RequestLoggerWithConfig(requestLoggerConfig()),
+		middleware.RequestLoggerWithConfig(md.RequestLoggerConfig()),
 		middleware.RequestID(),
-		newRateLimiterMW(apiRPS),
+		md.NewRateLimiter(apiRPS),
 	)
-
-	api.GET("/reservations", h.GetReservations, auth0.MiddlewareUserName)
-	api.POST("/reservations", h.CreateReservation, auth0.MiddlewareUserName)
-	api.POST("/reservations/:reservationUid/return", h.ReservationsReturn, auth0.MiddlewareUserName)
 	api.POST("/reservations/rollback", h.RollbackReservation)
+
+	api = api.Group("", md.AuthContext)
+	api.GET("/reservations", h.GetReservations)
+	api.POST("/reservations", h.CreateReservation)
+	api.POST("/reservations/:reservationUid/return", h.ReservationsReturn)
 
 	return e
 }
@@ -73,11 +73,12 @@ func (h *Handler) Health(c echo.Context) error {
 }
 
 func (h *Handler) CreateReservation(c echo.Context) error {
+	ctx := c.Request().Context()
 	var req model.CreateReservationRequest
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	userName, err := auth0.GetUserName(c)
+	userName, err := auth.GetUserName(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -87,7 +88,6 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	ctx := c.Request().Context()
 	resp, err := h.reservationSvc.CreateReservation(ctx, req)
 	if err != nil {
 		if errors.Is(err, errs.ErrNoStars) {
@@ -101,7 +101,7 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 
 func (h *Handler) GetReservations(c echo.Context) error {
 	ctx := c.Request().Context()
-	userName, err := auth0.GetUserName(c)
+	userName, err := auth.GetUserName(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -114,7 +114,7 @@ func (h *Handler) GetReservations(c echo.Context) error {
 
 func (h *Handler) ReservationsReturn(c echo.Context) error {
 	ctx := c.Request().Context()
-	userName, err := auth0.GetUserName(c)
+	userName, err := auth.GetUserName(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}

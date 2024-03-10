@@ -9,37 +9,29 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Astemirdum/library-service/pkg/kafka"
-
+	"github.com/Astemirdum/library-service/identity-provider/config"
+	"github.com/Astemirdum/library-service/identity-provider/internal/handler"
+	"github.com/Astemirdum/library-service/identity-provider/internal/repository"
+	"github.com/Astemirdum/library-service/identity-provider/internal/server"
+	"github.com/Astemirdum/library-service/identity-provider/internal/service"
+	"github.com/Astemirdum/library-service/identity-provider/migrations"
 	"github.com/Astemirdum/library-service/pkg/logger"
 	"github.com/Astemirdum/library-service/pkg/postgres"
-	"github.com/Astemirdum/library-service/rating/config"
-	"github.com/Astemirdum/library-service/rating/internal/handler"
-	"github.com/Astemirdum/library-service/rating/internal/repository"
-	"github.com/Astemirdum/library-service/rating/internal/server"
-	"github.com/Astemirdum/library-service/rating/internal/service"
-	"github.com/Astemirdum/library-service/rating/migrations"
 	"go.uber.org/zap"
 )
 
 func Run(cfg *config.Config) error {
-	//fmt.Printf("%+v\n", cfg)
-	log := logger.NewLogger(cfg.Log, "rating")
+	log := logger.NewLogger(cfg.Log, "identity-provider")
 	db, err := postgres.NewPostgresDB(context.Background(), &cfg.Database, migrations.MigrationFiles)
 	if err != nil {
 		return fmt.Errorf("db init %w", err)
 	}
+	defer db.Close()
 	repo, err := repository.NewRepository(db, log)
 	if err != nil {
 		return fmt.Errorf("repo users %w", err)
 	}
 	svc := service.NewService(repo, log)
-
-	consumer, err := kafka.NewConsumer(cfg.Kafka, kafka.RatingConsumerGroup)
-	if err != nil {
-		return fmt.Errorf("kafka.NewConsumer %w", err)
-	}
-	go kafka.Consume(consumer, handler.NewConsumer(svc.Rating, log), kafka.RatingTopic)
 
 	h := handler.New(svc, log)
 	srv := server.NewServer(cfg.Server, h.NewRouter())
@@ -64,7 +56,6 @@ func Run(cfg *config.Config) error {
 	if err = srv.Stop(closeCtx); err != nil {
 		log.DPanic("srv.Stop", zap.Error(err))
 	}
-	db.Close()
 	log.Info("Graceful shutdown finished")
 	return nil
 }

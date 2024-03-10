@@ -3,10 +3,11 @@ package openid
 import (
 	"context"
 	"encoding/json"
-	"github.com/golang-jwt/jwt/v4"
 	"log/slog"
 	"net/http"
 	"strings"
+
+	"github.com/golang-jwt/jwt/v4"
 
 	//"github.com/auth0/go-jwt-middleware/v2/validator".
 	"github.com/coreos/go-oidc"

@@ -2,17 +2,19 @@ package handler
 
 import (
 	"fmt"
-	"log/slog"
 	"net/http"
 	"time"
 
-	"github.com/Astemirdum/library-service/gateway/internal/service/stats"
+	"github.com/Astemirdum/library-service/pkg/auth"
+	md "github.com/Astemirdum/library-service/pkg/middleware"
 
 	"github.com/Astemirdum/library-service/gateway/config"
 	"github.com/Astemirdum/library-service/gateway/internal/model"
 	"github.com/Astemirdum/library-service/gateway/internal/service/library"
+	"github.com/Astemirdum/library-service/gateway/internal/service/provider"
 	"github.com/Astemirdum/library-service/gateway/internal/service/rating"
 	"github.com/Astemirdum/library-service/gateway/internal/service/reservation"
+	"github.com/Astemirdum/library-service/gateway/internal/service/stats"
 	"github.com/Astemirdum/library-service/pkg/auth0"
 	"github.com/Astemirdum/library-service/pkg/kafka"
 	"github.com/Astemirdum/library-service/pkg/openid"
@@ -32,6 +34,7 @@ type Handler struct {
 	ratingSvc      RatingService
 	reservationSvc ReservationService
 	statsSvc       StatsService
+	providerSvc    ProviderService
 	enqueuer       Enqueuer
 	logstat        StatsLog
 	provider       openid.Provider
@@ -40,10 +43,11 @@ type Handler struct {
 
 func New(log *zap.Logger, cfg config.Config, producer sarama.SyncProducer, asyncProducer sarama.AsyncProducer) *Handler {
 	h := &Handler{
-		librarySvc:     library.NewService(log, cfg),
-		ratingSvc:      rating.NewService(log, cfg),
-		reservationSvc: reservation.NewService(log, cfg),
-		statsSvc:       stats.NewService(log, cfg),
+		librarySvc:     library.NewService(log, cfg.LibraryHTTPServer),
+		ratingSvc:      rating.NewService(log, cfg.RatingHTTPServer),
+		reservationSvc: reservation.NewService(log, cfg.ReservationHTTPServer),
+		statsSvc:       stats.NewService(log, cfg.StatsHTTPServer),
+		providerSvc:    provider.NewService(log, cfg.ProviderHTTPServer),
 		enqueuer:       NewEnqueuer(producer),
 		logstat:        NewStatsLog(asyncProducer, kafka.StatsTopic),
 		//provider:       openid.NewProvider(),
@@ -58,9 +62,7 @@ func (h *Handler) NewRouter(auth0Cfg auth0.Config) *echo.Echo {
 		baseRPS = 10
 		apiRPS  = 100
 	)
-	e.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
-		StackSize: 4 << 10, // 4 KB
-	}))
+	e.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{StackSize: 4 << 10}))
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     []string{"*"},
@@ -68,25 +70,29 @@ func (h *Handler) NewRouter(auth0Cfg auth0.Config) *echo.Echo {
 		AllowCredentials: true,
 	}))
 
-	base := e.Group("", newRateLimiterMW(baseRPS))
+	base := e.Group("", md.NewRateLimiter(baseRPS))
 	base.GET("/manage/health", h.Health)
 	base.GET("/swagger/*", echoSwagger.WrapHandler)
 
 	e.Validator = validate.NewCustomValidator()
 
-	auth, err := auth0.NewValidator(auth0Cfg)
-	if err != nil {
-		slog.Error("auth0.NewValidator")
-	}
+	//auth, err := auth0.NewValidator(auth0Cfg)
+	//if err != nil {
+	//	slog.Error("auth0.NewValidator")
+	//}
 
 	api := e.Group("/api/v1",
-		middleware.RequestLoggerWithConfig(requestLoggerConfig()),
+		middleware.RequestLoggerWithConfig(md.RequestLoggerConfig()),
 		middleware.RequestID(),
-		newRateLimiterMW(apiRPS),
+		md.NewRateLimiter(apiRPS),
 	)
-	api.GET("/authorize", h.Authorize)
+
 	api.GET("/callback", h.Callback)
-	api = api.Group("", auth0.Middleware(auth))
+
+	api.POST("/register", h.Register)
+	api.POST("/authorize", h.Authorize)
+
+	api = api.Group("", md.JwtAuthentication)
 
 	api.GET("/rating", h.GetRating)
 
@@ -106,9 +112,9 @@ func (h *Handler) Health(c echo.Context) error {
 	return c.String(http.StatusOK, "OK")
 }
 
-func (h *Handler) Authorize(c echo.Context) error {
-	return c.Redirect(http.StatusFound, h.provider.AuthURL())
-}
+//func (h *Handler) Authorize(c echo.Context) error {
+//	return c.Redirect(http.StatusFound, h.provider.AuthURL())
+//}
 
 func (h *Handler) Callback(c echo.Context) error {
 	state := c.QueryParam("state")
@@ -136,11 +142,11 @@ func (h *Handler) Callback(c echo.Context) error {
 }
 
 func (h *Handler) GetReservations(c echo.Context) error {
-	userName, err := auth0.GetUserName(c)
+	ctx := c.Request().Context()
+	userName, err := auth.GetUserName(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
-	ctx := c.Request().Context()
 
 	var reserves []model.GetReservation
 	if err := h.reservationSvc.CB().Call(func() error {
@@ -213,7 +219,8 @@ func getReservationResponse(reserves []model.GetReservation, books []model.Book,
 }
 
 func (h *Handler) CreateReservation(c echo.Context) error {
-	userName, err := auth0.GetUserName(c)
+	ctx := c.Request().Context()
+	userName, err := auth.GetUserName(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -226,7 +233,6 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 	if err := c.Validate(createReservationRequest); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	ctx := c.Request().Context()
 	var (
 		lib  model.GetLibrary
 		book model.GetBook
@@ -310,17 +316,17 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 
 func (h *Handler) ReservationReturn(c echo.Context) error {
 	ctx := c.Request().Context()
-	userName, err := auth0.GetUserName(c)
+	userName, err := auth.GetUserName(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 	reservationUID := c.Param("reservationUid")
 	var req model.ReservationReturnRequest
 	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 	if err := c.Validate(req); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 	res, code, err := h.reservationSvc.ReservationReturn(ctx, req, userName, reservationUID)
 	if err != nil {
@@ -376,7 +382,7 @@ func (h *Handler) ReservationReturn(c echo.Context) error {
 		stars = -10
 	}
 
-	if code, err := h.ratingSvc.Rating(ctx, userName, stars); err != nil {
+	if code, err := h.ratingSvc.Rating(ctx, stars); err != nil {
 		if code == http.StatusServiceUnavailable {
 			ratingMsg := model.RatingMsg{
 				Name:  userName,
@@ -441,7 +447,8 @@ func (h *Handler) GetLibraries(c echo.Context) error {
 }
 
 func (h *Handler) GetRating(c echo.Context) error {
-	userName, err := auth0.GetUserName(c)
+	ctx := c.Request().Context()
+	userName, err := auth.GetUserName(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -451,7 +458,7 @@ func (h *Handler) GetRating(c echo.Context) error {
 	)
 	if err := h.ratingSvc.CB().Call(func() error {
 		var err error
-		resp, code, err = h.ratingSvc.GetRating(c.Request().Context(), userName)
+		resp, code, err = h.ratingSvc.GetRating(ctx, userName)
 		if err != nil {
 			return echo.NewHTTPError(code, err.Error())
 		}
@@ -464,11 +471,12 @@ func (h *Handler) GetRating(c echo.Context) error {
 }
 
 func (h *Handler) GetStats(c echo.Context) error {
-	userName, err := auth0.GetUserName(c)
+	ctx := c.Request().Context()
+	userName, err := auth.GetUserName(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
-	if !auth0.IsAdmin(userName) {
+	if !auth.IsAdmin(ctx) {
 		return echo.NewHTTPError(http.StatusUnauthorized, "no admin")
 	}
 	var (
@@ -477,11 +485,64 @@ func (h *Handler) GetStats(c echo.Context) error {
 	)
 	if err := h.statsSvc.CB().Call(func() error {
 		var err error
-		resp, code, err = h.statsSvc.GetStats(c.Request().Context(), userName)
+		resp, code, err = h.statsSvc.GetStats(ctx, userName)
 		return err
 	}); err != nil {
 		return echo.NewHTTPError(code, err.Error())
 	}
 
 	return c.JSON(code, resp)
+}
+
+func (h *Handler) Register(c echo.Context) error {
+	var (
+		code int
+	)
+	if err := h.providerSvc.CB().Call(func() error {
+		var err error
+		_, code, err = h.providerSvc.Register(c)
+		if err != nil {
+			return echo.NewHTTPError(code, err.Error())
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	var userReq model.UserCreateRequest
+	if err := c.Bind(&userReq); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	const stars = 75
+	if err := h.ratingSvc.CB().Call(func() error {
+		var err error
+		code, err = h.ratingSvc.CreateRating(c.Request().Context(), userReq.Username, stars)
+		if err != nil {
+			return echo.NewHTTPError(code, err.Error())
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return c.NoContent(code)
+}
+
+func (h *Handler) Authorize(c echo.Context) error {
+	var (
+		code int
+		data []byte
+	)
+	if err := h.providerSvc.CB().Call(func() error {
+		var err error
+		data, code, err = h.providerSvc.Authorize(c)
+		if err != nil {
+			return echo.NewHTTPError(code, err.Error())
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return c.JSONBlob(code, data)
 }

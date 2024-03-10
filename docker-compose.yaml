@@ -15,6 +15,7 @@ services:
       - RESERVATION_HTTP_HOST=reservation
       - RATING_HTTP_HOST=rating
       - STATS_HTTP_HOST=stats
+      - PROVIDER_HTTP_HOST=provider
     ports:
       - "${GATEWAY_HTTP_PORT}:${GATEWAY_HTTP_PORT}"
     networks:
@@ -91,6 +92,23 @@ services:
     depends_on:
       - postgres
       - redpanda
+    networks:
+      - library
+
+  provider:
+    build:
+      context: .
+      dockerfile: docker/provider.Dockerfile
+    image: ${PROVIDER_IMAGE_NAME}:${PROVIDER_IMAGE_TAG}
+    restart: unless-stopped
+    container_name: provider
+    environment:
+      - DB_HOST=postgres
+      - DB_NAME=users
+    ports:
+      - "${PROVIDER_HTTP_PORT}:${PROVIDER_HTTP_PORT}"
+    depends_on:
+      - postgres
     networks:
       - library
 

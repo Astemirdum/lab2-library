@@ -8,3 +8,8 @@ type RatingMsg struct {
 	Name  string `json:"name"`
 	Stars int    `json:"stars"`
 }
+
+type CreateRating struct {
+	Name  string `json:"name"`
+	Stars int    `json:"stars"`
+}

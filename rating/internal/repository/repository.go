@@ -20,6 +20,7 @@ import (
 type Repository interface {
 	GetRating(ctx context.Context, name string) (model.Rating, error)
 	Rating(ctx context.Context, name string, stars int) error
+	CreateRating(ctx context.Context, name string, stars int) error
 }
 
 type repository struct {
@@ -45,6 +46,16 @@ func (r *repository) Rating(ctx context.Context, name string, stars int) error {
 update rating 
 set stars = stars + @stars
 where username=@userName`
+	args := pgx.NamedArgs{
+		"userName": name,
+		"stars":    stars,
+	}
+	_, err := r.db.Exec(ctx, q, args)
+	return err
+}
+
+func (r *repository) CreateRating(ctx context.Context, name string, stars int) error {
+	q := `insert into rating (username, stars) values (@username, @stars) on conflict do nothing`
 	args := pgx.NamedArgs{
 		"userName": name,
 		"stars":    stars,

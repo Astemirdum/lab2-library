@@ -28,11 +28,11 @@ type Service struct {
 	cb     circuit_breaker.CircuitBreaker
 }
 
-func NewService(log *zap.Logger, cfg config.Config) *Service {
+func NewService(log *zap.Logger, cfg config.LibraryHTTPServer) *Service {
 	return &Service{
 		log:    log,
 		client: &http.Client{Timeout: time.Minute},
-		cfg:    cfg.LibraryHTTPServer,
+		cfg:    cfg,
 		cb:     circuit_breaker.New(100, time.Second, 0.2, 2),
 	}
 }

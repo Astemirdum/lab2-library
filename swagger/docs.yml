@@ -5,6 +5,70 @@ info:
 servers:
   - url: http://localhost:8080
 paths:
+  /api/v1/register:
+    post:
+      summary: Register a new user
+      tags:
+        - Identity Provider API
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreateRequest"
+      responses:
+        "200":
+          description: Successful registration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserCreateResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/authorize:
+    post:
+      summary: Authorize a user
+      tags:
+        - Identity Provider API
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthRequest"
+      responses:
+        "200":
+          description: Successful authorization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/v1/libraries:
     get:
       summary: Получить список библиотек в городе
@@ -232,6 +296,36 @@ components:
       bearerFormat: JWT
 
   schemas:
+    AuthRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+    AuthResponse:
+      type: object
+      properties:
+        expiresIn:
+          type: integer
+        accessToken:
+          type: string
+    UserCreateRequest:
+      type: object
+      required:
+        - username
+        - password
+        - email
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        email:
+          type: string
     LibraryPaginationResponse:
       type: object
       example:

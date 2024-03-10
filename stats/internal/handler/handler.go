@@ -4,7 +4,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Astemirdum/library-service/pkg/auth"
+
 	"github.com/Astemirdum/library-service/pkg/auth0"
+	md "github.com/Astemirdum/library-service/pkg/middleware"
 	"github.com/Astemirdum/library-service/pkg/validate"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -42,17 +45,17 @@ func (h *Handler) NewRouter() *echo.Echo {
 		AllowCredentials: true,
 	}))
 
-	base := e.Group("", newRateLimiterMW(baseRPS))
+	base := e.Group("", md.NewRateLimiter(baseRPS))
 	base.GET("/manage/health", h.Health)
 
 	e.Validator = validate.NewCustomValidator()
 	api := e.Group("/api/v1",
-		middleware.RequestLoggerWithConfig(requestLoggerConfig()),
+		middleware.RequestLoggerWithConfig(md.RequestLoggerConfig()),
 		middleware.RequestID(),
-		newRateLimiterMW(apiRPS),
+		md.NewRateLimiter(apiRPS),
 		auth0.MiddlewareUserName,
 	)
-
+	api = api.Group("", md.AuthContext)
 	api.GET("/stats", h.GetStats)
 	return e
 }
@@ -63,11 +66,7 @@ func (h *Handler) Health(c echo.Context) error {
 
 func (h *Handler) GetStats(c echo.Context) error {
 	ctx := c.Request().Context()
-	userName, err := auth0.GetUserName(c)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-	if !auth0.IsAdmin(userName) {
+	if !auth.IsAdmin(ctx) {
 		return echo.NewHTTPError(http.StatusUnauthorized, "no admin")
 	}
 

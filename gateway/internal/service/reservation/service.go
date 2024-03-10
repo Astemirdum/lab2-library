@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Astemirdum/library-service/pkg/auth"
+
 	"github.com/Astemirdum/library-service/pkg/circuit_breaker"
 
 	"github.com/Astemirdum/library-service/gateway/internal/errs"
@@ -28,18 +30,14 @@ type Service struct {
 	cb     circuit_breaker.CircuitBreaker
 }
 
-func NewService(log *zap.Logger, cfg config.Config) *Service { //nolint:gocritic
+func NewService(log *zap.Logger, cfg config.ReservationHTTPServer) *Service { //nolint:gocritic
 	return &Service{
 		log:    log,
 		client: &http.Client{Timeout: time.Minute},
-		cfg:    cfg.ReservationHTTPServer,
+		cfg:    cfg,
 		cb:     circuit_breaker.New(100, time.Second, 0.2, 2),
 	}
 }
-
-const (
-	XUserName = "X-User-Name"
-)
 
 func (s *Service) CB() circuit_breaker.CircuitBreaker {
 	return s.cb
@@ -50,7 +48,7 @@ func (s *Service) GetReservation(ctx context.Context, username string) ([]model.
 	if err != nil {
 		return nil, http.StatusBadRequest, err
 	}
-	req.Header.Set(XUserName, username)
+	auth.SetAuthHeader(req)
 	req.Header.Set("Content-Type", echo.MIMEApplicationJSONCharsetUTF8)
 	resp, err := s.client.Do(req)
 	if err != nil {
@@ -78,7 +76,7 @@ func (s *Service) CreateReservation(ctx context.Context, request model.CreateRes
 	if err != nil {
 		return model.Reservation{}, http.StatusBadRequest, err
 	}
-	req.Header.Set(XUserName, request.UserName)
+	auth.SetAuthHeader(req)
 	req.Header.Set("Content-Type", echo.MIMEApplicationJSONCharsetUTF8)
 	resp, err := s.client.Do(req)
 	if err != nil {
@@ -110,6 +108,7 @@ func (s *Service) RollbackReservation(ctx context.Context, uuid string) (int, er
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
+	auth.SetAuthHeader(req)
 	req.Header.Set("Content-Type", echo.MIMEApplicationJSONCharsetUTF8)
 	resp, err := s.client.Do(req)
 	if err != nil {
@@ -133,8 +132,8 @@ func (s *Service) ReservationReturn(ctx context.Context, req model.ReservationRe
 	if err != nil {
 		return model.ReservationReturnResponse{}, http.StatusBadRequest, err
 	}
+	auth.SetAuthHeader(r)
 	r.Header.Set("Content-Type", echo.MIMEApplicationJSONCharsetUTF8)
-	r.Header.Set(XUserName, username)
 	resp, err := s.client.Do(r)
 	if err != nil {
 		return model.ReservationReturnResponse{}, http.StatusServiceUnavailable, err

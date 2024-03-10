@@ -97,6 +97,11 @@ type Rating struct {
 	Stars int `json:"stars"`
 }
 
+type CreateRating struct {
+	Name  string `json:"name"`
+	Stars int    `json:"stars"`
+}
+
 type RatingMsg struct {
 	Name  string `json:"name"`
 	Stars int    `json:"stars"`
@@ -129,4 +134,20 @@ type Stats struct {
 
 type StatsInfo struct {
 	Data []Stats `json:"data"`
+}
+
+type AuthRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type AuthResponse struct {
+	ExpiresIn   int    `json:"expires_in"`
+	AccessToken string `json:"access_token"`
+}
+
+type UserCreateRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Email    string `json:"email"`
 }

@@ -23,6 +23,11 @@ func NewService(repo ratingRepo.Repository, log *zap.Logger) *Service {
 func (s *Service) GetRating(ctx context.Context, name string) (ratingModel.Rating, error) {
 	return s.repo.GetRating(ctx, name)
 }
+
 func (s *Service) Rating(ctx context.Context, name string, stars int) error {
 	return s.repo.Rating(ctx, name, stars)
+}
+
+func (s *Service) CreateRating(ctx context.Context, name string, stars int) error {
+	return s.repo.CreateRating(ctx, name, stars)
 }

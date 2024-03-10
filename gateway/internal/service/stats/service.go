@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Astemirdum/library-service/pkg/auth0"
+	"github.com/Astemirdum/library-service/pkg/auth"
 
 	"github.com/pkg/errors"
 
@@ -32,11 +32,11 @@ type Service struct {
 	cb     circuit_breaker.CircuitBreaker
 }
 
-func NewService(log *zap.Logger, cfg config.Config) *Service {
+func NewService(log *zap.Logger, cfg config.StatsHTTPServer) *Service {
 	return &Service{
 		log:    log,
 		client: &http.Client{Timeout: time.Minute},
-		cfg:    cfg.StatsHTTPServer,
+		cfg:    cfg,
 		cb:     circuit_breaker.New(100, time.Second, 0.2, 2),
 	}
 }
@@ -50,7 +50,8 @@ func (s *Service) GetStats(ctx context.Context, userName string) (model.StatsInf
 	if err != nil {
 		return model.StatsInfo{}, http.StatusBadRequest, err
 	}
-	req.Header.Set(auth0.XUserName, userName)
+	auth.SetAuthHeader(req)
+	req.Header.Set("Content-Type", echo.MIMEApplicationJSONCharsetUTF8)
 	resp, err := s.client.Do(req)
 	if err != nil {
 		return model.StatsInfo{}, http.StatusServiceUnavailable, errors.New("Bonus Service unavailable")

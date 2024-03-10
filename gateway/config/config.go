@@ -30,6 +30,11 @@ type StatsHTTPServer struct {
 	Port string `envconfig:"STATS_HTTP_PORT"`
 }
 
+type ProviderHTTPServer struct {
+	Host string `envconfig:"PROVIDER_HTTP_HOST"`
+	Port string `envconfig:"PROVIDER_HTTP_PORT"`
+}
+
 type LibraryHTTPServer struct {
 	Host string `envconfig:"LIBRARY_HTTP_HOST"`
 	Port string `envconfig:"LIBRARY_HTTP_PORT"`
@@ -48,6 +53,7 @@ type Config struct {
 	LibraryHTTPServer     LibraryHTTPServer
 	RatingHTTPServer      RatingHTTPServer
 	StatsHTTPServer       StatsHTTPServer
+	ProviderHTTPServer    ProviderHTTPServer
 	Log                   logger.Log `yaml:"log"`
 }
 

@@ -36,7 +36,7 @@ type Handler struct {
 	statsSvc       StatsService
 	providerSvc    ProviderService
 	enqueuer       Enqueuer
-	logstat        StatsLog
+	logStat        StatsLog
 	provider       openid.Provider
 	log            *zap.Logger
 }
@@ -49,7 +49,7 @@ func New(log *zap.Logger, cfg config.Config, producer sarama.SyncProducer, async
 		statsSvc:       stats.NewService(log, cfg.StatsHTTPServer),
 		providerSvc:    provider.NewService(log, cfg.ProviderHTTPServer),
 		enqueuer:       NewEnqueuer(producer),
-		logstat:        NewStatsLog(asyncProducer, kafka.StatsTopic),
+		logStat:        NewStatsLog(asyncProducer, kafka.StatsTopic),
 		//provider:       openid.NewProvider(),
 		log: log,
 	}
@@ -293,7 +293,7 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 		return nil
 	}
 
-	_ = h.logstat.Log(kafka.EventStats{ //nolint:errcheck
+	_ = h.logStat.Log(kafka.EventStats{ //nolint:errcheck
 		Timestamp:     time.Now(),
 		UserName:      userName,
 		ReservationID: rsv.ReservationUid,
@@ -396,7 +396,7 @@ func (h *Handler) ReservationReturn(c echo.Context) error {
 		}
 	}
 
-	_ = h.logstat.Log(kafka.EventStats{ //nolint:errcheck
+	_ = h.logStat.Log(kafka.EventStats{ //nolint:errcheck
 		Timestamp:     time.Now(),
 		UserName:      userName,
 		ReservationID: reservationUID,

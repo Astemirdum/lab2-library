@@ -24,6 +24,9 @@ func NewStatsLog(producer sarama.AsyncProducer, topic string) *statsLog {
 }
 
 func (l *statsLog) Log(sl kafka.EventStats) error {
+	if l == nil {
+		return nil
+	}
 	data, err := json.Marshal(sl)
 	if err != nil {
 		return err

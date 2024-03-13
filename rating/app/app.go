@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/Astemirdum/library-service/pkg/kafka"
-
 	"github.com/Astemirdum/library-service/pkg/logger"
 	"github.com/Astemirdum/library-service/pkg/postgres"
 	"github.com/Astemirdum/library-service/rating/config"

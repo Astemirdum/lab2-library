@@ -10,7 +10,7 @@ metadata:
     "helm.sh/hook-weight": "-2"
     "helm.sh/hook-delete-policy": before-hook-creation
 spec:
-  replicas: {{ .Values.gateway.replicaCount | default 1}}
+  replicas: {{ .Values.gateway.replicaCount | default 1 }}
   selector:
     matchLabels:
       {{- include "library-app.selectorLabels" . | nindent 6 }}

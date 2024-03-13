@@ -9,15 +9,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Astemirdum/library-service/pkg/kafka"
-
-	"github.com/Astemirdum/library-service/library/migrations"
-
 	"github.com/Astemirdum/library-service/library/config"
 	"github.com/Astemirdum/library-service/library/internal/handler"
 	"github.com/Astemirdum/library-service/library/internal/repository"
 	"github.com/Astemirdum/library-service/library/internal/server"
 	"github.com/Astemirdum/library-service/library/internal/service"
+	"github.com/Astemirdum/library-service/library/migrations"
+	"github.com/Astemirdum/library-service/pkg/kafka"
 	"github.com/Astemirdum/library-service/pkg/logger"
 	"github.com/Astemirdum/library-service/pkg/postgres"
 	"go.uber.org/zap"

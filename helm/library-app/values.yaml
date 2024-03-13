@@ -15,6 +15,8 @@ configData:
       libraryHost: "library-svc"
       reservationHost: "reservation-svc"
       ratingHost: "rating-svc"
+      statsHost: "stats-svc"
+      providerHost: "provider-svc"
 
   library:
     http:
@@ -39,6 +41,22 @@ configData:
       read: "20s"
     logLevel: debug
     dbName: ratings
+
+  stats:
+    http:
+      host: "0.0.0.0"
+      port: "8040"
+      read: "20s"
+    logLevel: debug
+    dbName: stats
+
+  provider:
+    http:
+      host: "0.0.0.0"
+      port: "8030"
+      read: "20s"
+    logLevel: debug
+    dbName: users
 
   db:
     host: "postgresql-db-ip"
@@ -239,6 +257,79 @@ rating:
     value: 9000
   terminationGracePeriodSeconds: 60
 
+stats:
+  replicaCount: 1
+  image:
+    hostname: docker.io
+    repository: astdockerid1/stats
+    tag: "v1.0"
+    pullPolicy: Always
+
+  name: "stats"
+  fullname: "stats"
+
+  resources:
+    requests:
+      cpu: 30m
+      memory: 50Mi
+    limits:
+      cpu: 50m
+      memory: 100Mi
+
+  service:
+    type: ClusterIP
+    port: 8040
+  containerPort: 8040
+  portName: http
+
+  restartPolicy: Always
+  strategy:
+    rollingUpdate:
+      maxSurge: 1 # 50%
+      maxUnavailable: 1
+    type: RollingUpdate
+  priority:
+    className: high-priority
+    value: 9000
+  terminationGracePeriodSeconds: 60
+
+provider:
+  replicaCount: 1
+  image:
+    hostname: docker.io
+    repository: astdockerid1/provider
+    tag: "v1.0"
+    pullPolicy: Always
+
+  name: "provider"
+  fullname: "provider"
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 100Mi
+    limits:
+      cpu: 60m
+      memory: 110Mi
+
+  service:
+    type: ClusterIP
+    port: 8030
+  containerPort: 8030
+  portName: http
+
+  restartPolicy: Always
+  strategy:
+    rollingUpdate:
+      maxSurge: 1 # 50%
+      maxUnavailable: 1
+    type: RollingUpdate
+  priority:
+    className: high-priority
+    value: 9000
+  terminationGracePeriodSeconds: 60
+
+
 db:
   enabled: true
   nodeSelector: {}
@@ -310,12 +401,11 @@ db:
     subPath:
 
 
-
-
 ingress:
   enabled: true
   className: ""
   annotations:
+#    spec: ingressClassName: nginx
     kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
     nginx.ingress.kubernetes.io/use-regex: "true"

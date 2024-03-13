@@ -33,8 +33,8 @@ helm-template:
 helm-upgrade:
 	helm upgrade ${MY_RELEASE} ${HELM} --namespace ${NAMESPACE}
 
-.PHONY: k-clean
-k-clean:
+.PHONY: helm-clean
+helm-clean:
 	kubectl delete sc,pvc,pv,cm,ing,secret,svc,all --all -n ${NAMESPACE}
 
 .PHONY: helm-rollout
@@ -90,12 +90,23 @@ docker-login:
 
 .PHONY: image-build
 image-build:
-	docker compose -f ./docker-compose.yaml --env-file .env build
+	docker compose -f ./docker-compose.yaml --env-file .env build $(svc)
 
-.PHONY: image-push
+
+.PHONY: image-push # svc=gateway
 image-push:
-	docker push ${IMAGE_NAME}:${IMAGE_TAG}
+	docker push astdockerid1/$(svc):v1.0
 
+SERVICES = gateway library provider stats library rating reservation
+.PHONY: push-all-images
+push-all-images:
+	for service in $(SERVICES); do \
+		docker push astdockerid1/$$service:v1.0; \
+	done
+
+.PHONY: image-clean
+image-clean:
+	docker rmi $(docker images -f "dangling=true" -q)
 
 .PHONY: mocks
 mocks:

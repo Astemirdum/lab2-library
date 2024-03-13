@@ -52,6 +52,34 @@ If release name contains chart name it will be used as a full name.
 {{- end }}
 {{- end }}
 
+
+{{- define "stats.fullname" -}}
+{{- if .Values.stats.fullname }}
+{{- .Values.stats.fullname | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.stats.name }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+
+{{- define "provider.fullname" -}}
+{{- if .Values.provider.fullname }}
+{{- .Values.provider.fullname | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.provider.name }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+{{- end }}
+
 {{- define "reservation.fullname" -}}
 {{- if .Values.reservation.fullname }}
 {{- .Values.reservation.fullname | trunc 63 | trimSuffix "-" }}
@@ -135,6 +163,17 @@ app.kubernetes.io/name: {{ include "rating.fullname" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
+{{- define "stats.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "stats.fullname" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+
+{{- define "provider.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "provider.fullname" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
 {{- define "reservation.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "reservation.fullname" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
@@ -208,6 +247,59 @@ startupProbe:
   successThreshold: 1
 {{- end }}
 
+
+
+{{/*health*/}}
+{{- define "stats.health" -}}
+readinessProbe:
+  httpGet: &health
+    path: /manage/health
+    port: {{ .Values.configData.stats.http.port }}
+    scheme: HTTP
+  initialDelaySeconds: 20
+  failureThreshold: 3
+  periodSeconds: 30
+  timeoutSeconds: 5
+livenessProbe:
+  httpGet: *health
+  failureThreshold: 5
+  periodSeconds: 60
+  timeoutSeconds: 5
+  successThreshold: 1
+  initialDelaySeconds: 10
+startupProbe:
+  failureThreshold: 10
+  httpGet: *health
+  periodSeconds: 10
+  timeoutSeconds: 5
+  successThreshold: 1
+{{- end }}
+
+{{/*health*/}}
+{{- define "provider.health" -}}
+readinessProbe:
+  httpGet: &health
+    path: /manage/health
+    port: {{ .Values.configData.provider.http.port }}
+    scheme: HTTP
+  initialDelaySeconds: 20
+  failureThreshold: 3
+  periodSeconds: 30
+  timeoutSeconds: 5
+livenessProbe:
+  httpGet: *health
+  failureThreshold: 5
+  periodSeconds: 60
+  timeoutSeconds: 5
+  successThreshold: 1
+  initialDelaySeconds: 10
+startupProbe:
+  failureThreshold: 10
+  httpGet: *health
+  periodSeconds: 10
+  timeoutSeconds: 5
+  successThreshold: 1
+{{- end }}
 
 {{/*health*/}}
 {{- define "rating.health" -}}

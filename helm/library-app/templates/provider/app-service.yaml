@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "provider.fullname" . }}-svc
+  labels:
+    helm.sh/chart: {{ include "library-app.chart" . }}
+    {{- include "provider.selectorLabels" . |  nindent 4}}
+  namespace: {{ include "library-app.namespace" . }}
+spec:
+  type: {{ .Values.provider.service.type }}
+  ports:
+    - port: {{ .Values.provider.service.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "provider.selectorLabels" . | nindent 4 }}

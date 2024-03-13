@@ -14,6 +14,7 @@ data:
   RATING_HTTP_HOST: "{{ .Values.configData.gateway.services.ratingHost}}"
   STATS_HTTP_HOST: "{{ .Values.configData.gateway.services.statsHost}}"
   PROVIDER_HTTP_HOST: "{{ .Values.configData.gateway.services.providerHost}}"
+  KAFKA_BROKERS: "{{ .Values.configData.kafka.brokers}}"
   DB_HOST: "{{ .Values.configData.db.host }}"
   DB_PORT: "{{ .Values.configData.db.port  }}"
   DB_USER: "{{ .Values.configData.db.user }}"

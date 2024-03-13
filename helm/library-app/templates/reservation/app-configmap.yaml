@@ -13,3 +13,4 @@ data:
   DB_PORT: "{{ .Values.configData.db.port }}"
   DB_USER: "{{ .Values.configData.db.user }}"
   DB_NAME: "{{ .Values.configData.reservation.dbName }}"
+  KAFKA_BROKERS: "{{ .Values.configData.kafka.brokers}}"

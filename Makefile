@@ -6,8 +6,31 @@ HELM=helm/library-app
 NAMESPACE=default
 MY_RELEASE=rsoi
 
-#https://docs.redpanda.com/21.11/quickstart/kubernetes-qs-minikube/
+.PHONY: helm-run-redpanda
+helm-run-redpanda:
+	#helm repo add redpanda https://charts.redpanda.com || true
+	#helm repo update
+	helm upgrade --install redpanda redpanda/redpanda \
+        -n ${NAMESPACE} \
+        --create-namespace \
+        --set tls.enabled=false \
+        --set external.domain=customredpandadomain.local \
+        --set statefulset.initContainers.setDataDirOwnership.enabled=true \
+        --set statefulset.replicas=1 \
+        --set resources.cpu.cores=1 \
+        --set resources.memory.max=300Mi \
+        --set post_upgrade_job.enabled=false \
+        --set post_install_job.enabled=false \
+        --set storage.persistentVolume.size=1Gi
 
+.PHONY: create-topics
+create-topics:
+	kubectl exec redpanda-0 -n ${NAMESPACE} -c redpanda -- rpk topic --brokers redpanda-0:9093 create library rating stats -p 1
+
+
+.PHONY: helm-drop-redpanda
+helm-drop-redpanda:
+	helm uninstall redpanda -n ${NAMESPACE}
 
 .PHONY: helm-run
 helm-run:

@@ -19,6 +19,10 @@ import (
 
 func Run(cfg config.Config) error {
 	log := logger.NewLogger(cfg.Log, "gateway")
+
+	if err := kafka.CreateTopics(cfg.Kafka); err != nil {
+		log.Error("create topics", zap.Error(err))
+	}
 	producer, err := kafka.NewSyncProducer(cfg.Kafka)
 	if err != nil {
 		log.DPanic("kafka", zap.Error(err))

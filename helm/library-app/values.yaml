@@ -65,6 +65,8 @@ configData:
     name: "postgres"
     data: "/data/pgdata"
 
+  kafka:
+    brokers: "redpanda:9093"
 
 
 storageClass:

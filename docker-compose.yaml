@@ -10,7 +10,7 @@ services:
     depends_on:
       - redpanda
     environment:
-      - KAFKA_ADDRS=redpanda:9092
+      - KAFKA_BROKERS=redpanda:9092
       - LIBRARY_HTTP_HOST=library
       - RESERVATION_HTTP_HOST=reservation
       - RATING_HTTP_HOST=rating
@@ -29,7 +29,7 @@ services:
     restart: unless-stopped
     container_name: library
     environment:
-      - KAFKA_ADDRS=redpanda:9092
+      - KAFKA_BROKERS=redpanda:9092
       - DB_HOST=postgres
       - DB_NAME=libraries
     ports:
@@ -65,7 +65,7 @@ services:
     restart: unless-stopped
     container_name: rating
     environment:
-      - KAFKA_ADDRS=redpanda:9092
+      - KAFKA_BROKERS=redpanda:9092
       - DB_HOST=postgres
       - DB_NAME=ratings
     ports:
@@ -84,7 +84,7 @@ services:
     restart: unless-stopped
     container_name: stats
     environment:
-      - KAFKA_ADDRS=redpanda:9092
+      - KAFKA_BROKERS=redpanda:9092
       - DB_HOST=postgres
       - DB_NAME=stats
     ports:

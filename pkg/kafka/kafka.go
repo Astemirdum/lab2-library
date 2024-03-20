@@ -2,8 +2,9 @@ package kafka
 
 import (
 	"fmt"
-	"github.com/IBM/sarama"
 	"strings"
+
+	"github.com/IBM/sarama"
 )
 
 type Config struct {
@@ -28,7 +29,7 @@ func CreateTopics(cfg Config) error {
 	if err != nil {
 		return fmt.Errorf("creating cluster admin: %w", err)
 	}
-	topics, _ := admin.ListTopics()
+	topics, _ := admin.ListTopics() //nolint:errcheck
 	fmt.Println("list topics", topics)
 	defer admin.Close()
 	if err := admin.CreateTopic("test", &sarama.TopicDetail{

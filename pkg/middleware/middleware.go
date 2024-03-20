@@ -2,14 +2,11 @@ package handler
 
 import (
 	"net/http"
-	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/Astemirdum/library-service/pkg/auth"
 	"github.com/Astemirdum/library-service/pkg/logger"
-	"github.com/golang-jwt/jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"go.uber.org/zap"
@@ -22,28 +19,30 @@ const (
 	bearer              = "Bearer "
 )
 
+func JwtAuthenticationV2(next echo.HandlerFunc, rawJWKs string) echo.HandlerFunc {
+	jwks := auth.NewJWKs(rawJWKs)
+	return func(c echo.Context) error {
+		authorization := c.Request().Header.Get(AuthorizationHeader)
+		claims, err := auth.RetrieveToken(authorization, jwks.Keyfunc)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		}
+		req := c.Request()
+		ctx := auth.SetAuthContext(req.Context(), claims.Profile.Username, claims.Profile.Role)
+		req = req.WithContext(ctx)
+		c.SetRequest(req)
+
+		return next(c)
+	}
+}
+
 func JwtAuthentication(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		authorization := c.Request().Header.Get(AuthorizationHeader)
-		if authorization == "" {
-			return echo.NewHTTPError(http.StatusUnauthorized, "No Authorization Header")
+		claims, err := auth.RetrieveToken(authorization, auth.DefaultKeyFunc)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 		}
-		if !strings.HasPrefix(authorization, bearer) {
-			return echo.NewHTTPError(http.StatusUnauthorized, "Invalid Authorization Header")
-		}
-		tokenStr := strings.TrimPrefix(authorization, bearer)
-		claims := new(auth.Claims)
-
-		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
-			return auth.JWTKey, nil
-		})
-		if err != nil || !token.Valid {
-			return echo.NewHTTPError(http.StatusUnauthorized, "JwtAccessDenied")
-		}
-		if time.Now().After(claims.ExpiresAt.Time) {
-			return echo.NewHTTPError(http.StatusUnauthorized, "TokenExpired")
-		}
-
 		req := c.Request()
 		ctx := auth.SetAuthContext(req.Context(), claims.Profile.Username, claims.Profile.Role)
 		req = req.WithContext(ctx)

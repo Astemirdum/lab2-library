@@ -5,6 +5,7 @@ go 1.22.0
 require (
 	github.com/IBM/sarama v1.41.2
 	github.com/Masterminds/squirrel v1.5.4
+	github.com/MicahParks/keyfunc v1.9.0
 	github.com/auth0/go-jwt-middleware/v2 v2.1.0
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/go-playground/validator/v10 v10.15.4

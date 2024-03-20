@@ -8,11 +8,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Astemirdum/library-service/pkg/kafka"
-
 	"github.com/Astemirdum/library-service/gateway/config"
 	"github.com/Astemirdum/library-service/gateway/internal/handler"
 	"github.com/Astemirdum/library-service/gateway/internal/server"
+	"github.com/Astemirdum/library-service/pkg/kafka"
 	"github.com/Astemirdum/library-service/pkg/logger"
 	"go.uber.org/zap"
 )
@@ -39,7 +38,7 @@ func Run(cfg config.Config) error {
 
 	h := handler.New(log, cfg, producer, asyncProducer)
 
-	srv := server.NewServer(cfg.Server, h.NewRouter(cfg.Auth0))
+	srv := server.NewServer(cfg.Server, h.NewRouter())
 	log.Info("http server start ON: ",
 		zap.String("addr",
 			net.JoinHostPort(cfg.Server.Host, cfg.Server.Port)))

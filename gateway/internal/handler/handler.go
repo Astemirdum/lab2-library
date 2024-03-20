@@ -15,7 +15,6 @@ import (
 	"github.com/Astemirdum/library-service/gateway/internal/service/rating"
 	"github.com/Astemirdum/library-service/gateway/internal/service/reservation"
 	"github.com/Astemirdum/library-service/gateway/internal/service/stats"
-	"github.com/Astemirdum/library-service/pkg/auth0"
 	"github.com/Astemirdum/library-service/pkg/kafka"
 	"github.com/Astemirdum/library-service/pkg/openid"
 	"github.com/Astemirdum/library-service/pkg/validate"
@@ -56,7 +55,7 @@ func New(log *zap.Logger, cfg config.Config, producer sarama.SyncProducer, async
 	return h
 }
 
-func (h *Handler) NewRouter(auth0Cfg auth0.Config) *echo.Echo {
+func (h *Handler) NewRouter() *echo.Echo {
 	e := echo.New()
 	const (
 		baseRPS = 10
@@ -70,11 +69,11 @@ func (h *Handler) NewRouter(auth0Cfg auth0.Config) *echo.Echo {
 		AllowCredentials: true,
 	}))
 
+	e.Validator = validate.NewCustomValidator()
 	base := e.Group("", md.NewRateLimiter(baseRPS))
+
 	base.GET("/manage/health", h.Health)
 	base.GET("/swagger/*", echoSwagger.WrapHandler)
-
-	e.Validator = validate.NewCustomValidator()
 
 	//auth, err := auth0.NewValidator(auth0Cfg)
 	//if err != nil {

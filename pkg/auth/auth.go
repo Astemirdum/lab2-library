@@ -25,7 +25,7 @@ const (
 
 var JWTKey = []byte(secretKey)
 
-type Claims struct {
+type Token struct {
 	Profile struct {
 		Username string `json:"username"`
 		Role     string `json:"role"`
@@ -35,7 +35,7 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-func (c *Claims) Valid() error {
+func (c *Token) Valid() error {
 	valid := c.RegisteredClaims.Valid()
 	return valid
 }

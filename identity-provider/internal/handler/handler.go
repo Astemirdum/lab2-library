@@ -98,7 +98,7 @@ func (h *Handler) Authorize(c echo.Context) error {
 	}
 
 	expirationTime := time.Now().Add(24 * time.Hour)
-	claims := &auth.Claims{
+	claims := &auth.Token{
 		Profile: struct {
 			Username string `json:"username"`
 			Role     string `json:"role"`

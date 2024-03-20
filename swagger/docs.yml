@@ -16,12 +16,8 @@ paths:
             schema:
               $ref: "#/components/schemas/UserCreateRequest"
       responses:
-        "200":
+        "201":
           description: Successful registration
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UserCreateResponse"
         "400":
           description: Bad request
           content:

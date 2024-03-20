@@ -23,6 +23,8 @@ helm-run-redpanda:
         --set post_install_job.enabled=false \
         --set storage.persistentVolume.size=1Gi
 
+#--values redpanda-values.yaml --reuse-values
+
 .PHONY: create-topics
 create-topics:
 	kubectl exec redpanda-0 -n ${NAMESPACE} -c redpanda -- rpk topic --brokers redpanda-0:9093 create library rating stats -p 1

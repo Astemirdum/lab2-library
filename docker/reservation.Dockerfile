@@ -13,7 +13,7 @@ COPY . .
 
 RUN go mod download && go mod verify
 
-RUN go build -ldflags="-s -w" -o /app/reservation cmd/reservation/main.go
+RUN go build -ldflags="-s -w" -o /app/reservation backend/cmd/reservation/main.go
 
 FROM alpine
 

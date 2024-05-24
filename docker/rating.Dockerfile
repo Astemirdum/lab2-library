@@ -13,7 +13,7 @@ COPY . .
 
 RUN go mod download && go mod verify
 
-RUN go build -ldflags="-s -w" -o /app/rating cmd/rating/main.go
+RUN go build -ldflags="-s -w" -o /app/rating backend/cmd/rating/main.go
 
 FROM alpine
 

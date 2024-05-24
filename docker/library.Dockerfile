@@ -13,7 +13,7 @@ COPY . .
 
 RUN go mod download && go mod verify
 
-RUN go build -ldflags="-s -w" -o /app/library cmd/library/main.go
+RUN go build -ldflags="-s -w" -o /app/library backend/cmd/library/main.go
 
 FROM alpine
 

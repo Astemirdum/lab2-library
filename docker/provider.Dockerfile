@@ -13,7 +13,7 @@ COPY . .
 
 RUN go mod download && go mod verify
 
-RUN go build -ldflags="-s -w" -o /app/provider cmd/identity-provider/main.go
+RUN go build -ldflags="-s -w" -o /app/provider backend/cmd/identity-provider/main.go
 
 FROM alpine
 

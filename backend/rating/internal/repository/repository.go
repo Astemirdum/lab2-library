@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -81,7 +80,7 @@ func (r *repository) GetRating(ctx context.Context, name string) (model.Rating, 
 	defer rows.Close()
 	rr, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[model.Rating])
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return model.Rating{}, errs.ErrNotFound
 		}
 		return model.Rating{}, fmt.Errorf("pgx.CollectRows: %w", err)

@@ -11,6 +11,13 @@ We truncate at 63 chars because some Kubernetes name fields are limited to this 
 If release name contains chart name it will be used as a full name.
 */}}
 
+{{/*
+Create chart name and version as used by the chart label.
+*/}}
+{{- define "library-app.chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
 
 {{- define "gateway.fullname" -}}
 {{- if .Values.gateway.fullname }}
@@ -99,13 +106,6 @@ If release name contains chart name it will be used as a full name.
 {{- if .Values.db.name }}
 {{- .Values.db.name | trunc 63 | trimSuffix "-" }}
 {{- end }}
-{{- end }}
-
-{{/*
-Create chart name and version as used by the chart label.
-*/}}
-{{- define "library-app.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 

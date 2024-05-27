@@ -144,11 +144,26 @@ func (r *repository) ListLibrary(ctx context.Context, city string, page, size in
 	if err != nil {
 		return model.ListLibraries{}, fmt.Errorf("pgx.CollectRows: %w", err)
 	}
+
+	var totalElements int
+	{
+		q := qb.Select("count(*)").
+			From(libraryTableName).
+			Where(sq.Eq{"city": city})
+		query, args, err := q.ToSql()
+		if err != nil {
+			return model.ListLibraries{}, err
+		}
+		if err := r.db.QueryRow(ctx, query, args...).Scan(&totalElements); err != nil {
+			return model.ListLibraries{}, err
+		}
+	}
+
 	return model.ListLibraries{
 		Paging: model.Paging{
 			Page:          page,
 			PageSize:      size,
-			TotalElements: len(libs),
+			TotalElements: totalElements,
 		},
 		Items: libs,
 	}, nil
@@ -164,6 +179,7 @@ func (r *repository) ListBooks(ctx context.Context, libraryUid string, showAll b
 	if !showAll {
 		q = q.Where(sq.Gt{"available_count": 0})
 	}
+
 	if page != 0 && size != 0 {
 		q = q.Limit(uint64(size)).Offset(uint64((page - 1) * size))
 	}
@@ -185,11 +201,32 @@ func (r *repository) ListBooks(ctx context.Context, libraryUid string, showAll b
 		return model.ListBooks{}, err
 	}
 
+	var totalElements int
+	{
+		q := qb.Select("count(*)").
+			From(booksTableName + " b").
+			Join(fmt.Sprintf("%s lb on b.id = lb.book_id", libraryBooksTableName)).
+			Join(fmt.Sprintf("%s l on l.id = lb.library_id", libraryTableName)).
+			Where(sq.Eq{"library_uid": libraryUid})
+
+		if !showAll {
+			q = q.Where(sq.Gt{"available_count": 0})
+		}
+
+		query, args, err := q.ToSql()
+		if err != nil {
+			return model.ListBooks{}, err
+		}
+		if err := r.db.QueryRow(ctx, query, args...).Scan(&totalElements); err != nil {
+			return model.ListBooks{}, err
+		}
+	}
+
 	return model.ListBooks{
 		Paging: model.Paging{
 			Page:          page,
 			PageSize:      size,
-			TotalElements: len(books),
+			TotalElements: totalElements,
 		},
 		Items: books,
 	}, nil

@@ -120,7 +120,8 @@ image-build:
 
 .PHONY: image-push # svc=gateway
 image-push:
-	docker push astdockerid1/$(svc):v1.0
+	#docker push astdockerid1/$(svc):v1.0
+	docker compose -f ./docker-compose.yaml --env-file .env push
 
 SERVICES = gateway library provider stats library rating reservation
 .PHONY: push-all-images

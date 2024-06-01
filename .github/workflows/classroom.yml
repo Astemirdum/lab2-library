@@ -128,6 +128,10 @@ jobs:
             image: astdockerid1/library
           - dockerfile: docker/reservation.Dockerfile
             image: astdockerid1/reservation
+          - dockerfile: docker/stats.Dockerfile
+            image: astdockerid1/stats
+          - dockerfile: docker/provider.Dockerfile
+            image: astdockerid1/provider
     steps:
       - name: Code
         uses: actions/checkout@v3
@@ -202,9 +206,9 @@ jobs:
             docker compose -f ./docker-compose.yaml --env-file .env up -d
 
 
-  deploy-helm-v2:
+  deploy-helm-cloud:
     if: github.repository == 'skip'
-    name: Deploy HELM V2
+    name: Deploy HELM Cloud
     needs: [ publish ]
     runs-on: ubuntu-latest
 
@@ -214,7 +218,7 @@ jobs:
       KUBECONFIG: /tmp/config
       HELM: helm/library-app
       NAMESPACE: default
-      MY_RELEASE: lab5
+      MY_RELEASE: rsoi
     steps:
       - uses: actions/checkout@v3
 
@@ -233,6 +237,24 @@ jobs:
       - name: Deploy API
         run: |
           source ~/vk-cloud-solutions/path.bash.inc
+          helm repo add redpanda https://charts.redpanda.com || true
+          helm repo update
+          helm upgrade --install redpanda redpanda/redpanda \
+              -n ${{ env.NAMESPACE }} \
+              --create-namespace \
+              --set tls.enabled=false \
+              --set external.domain=customredpandadomain.local \
+              --set statefulset.initContainers.setDataDirOwnership.enabled=true \
+              --set statefulset.replicas=1 \
+              --set resources.cpu.cores=1 \
+              --set resources.memory.max=300Mi \
+              --set post_upgrade_job.enabled=false \
+              --set post_install_job.enabled=false \
+              --set storage.persistentVolume.size=1Gi
+          
+          sleep 100
+          kubectl exec redpanda-0 -n ${{ env.NAMESPACE }}-c redpanda -- rpk topic --brokers redpanda-0:9093 create library rating stats -p 1
+          
           helm upgrade ${{ env.MY_RELEASE }} ${{ env.HELM }} --install --wait --atomic --namespace=${{ env.NAMESPACE }} --values=${{ env.HELM }}/values.yaml --timeout 120s --debug
 
       - name: Cleanup kubeconfig info
@@ -251,7 +273,7 @@ jobs:
     env:
       WORK_DIR: ~/app
       NAMESPACE: default
-      MY_RELEASE: lab5
+      MY_RELEASE: rsoi
     steps:
       - name: Code
         uses: actions/checkout@v3
@@ -273,6 +295,24 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+            helm repo add redpanda https://charts.redpanda.com || true
+            helm repo update
+            helm upgrade --install redpanda redpanda/redpanda \
+              -n ${{ env.NAMESPACE }} \
+              --create-namespace \
+              --set tls.enabled=false \
+              --set external.domain=customredpandadomain.local \
+              --set statefulset.initContainers.setDataDirOwnership.enabled=true \
+              --set statefulset.replicas=1 \
+              --set resources.cpu.cores=1 \
+              --set resources.memory.max=300Mi \
+              --set post_upgrade_job.enabled=false \
+              --set post_install_job.enabled=false \
+              --set storage.persistentVolume.size=1Gi
+            
+            sleep 100
+            kubectl exec redpanda-0 -n ${{ env.NAMESPACE }}-c redpanda -- rpk topic --brokers redpanda-0:9093 create library rating stats -p 1
+            
             helm pull ${{ env.REGISTRY }}/${{ env.HELM_NAME }} --version ${{ env.HELM_VERSION }} --untar
             helm upgrade --install ${{ env.MY_RELEASE }} ${{ env.HELM_NAME }} -f ${{ env.HELM_NAME }}/values.yaml  \
               --namespace ${{ env.NAMESPACE }} \
